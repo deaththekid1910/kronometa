@@ -3,34 +3,40 @@
 import { DayActivity } from '@/lib/reports'
 import { formatTime } from '@/lib/timer'
 import {
-  AreaChart, Area, XAxis, YAxis, Tooltip,
-  ResponsiveContainer, CartesianGrid
+  ComposedChart, Bar, Line, XAxis, YAxis, Tooltip,
+  ResponsiveContainer, CartesianGrid, Cell
 } from 'recharts'
 
-interface Props {
-  data: DayActivity[]
-}
+interface Props { data: DayActivity[] }
 
 function CustomTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null
+  const secs = payload[0]?.payload?.seconds || 0
   return (
     <div style={{
-      background: 'var(--surface)', border: '1px solid #00F5FF33',
-      borderRadius: 'var(--radius-md)', padding: '10px 14px',
+      background: '#0f0f1a', border: '1px solid #00F5FF33',
+      borderRadius: '10px', padding: '10px 14px',
+      boxShadow: '0 0 20px #00F5FF22',
     }}>
-      <div style={{ fontSize: '12px', color: 'var(--muted)', marginBottom: '4px' }}>{label}</div>
-      <div style={{ fontSize: '13px', fontFamily: 'var(--font-mono)', color: 'var(--cyan)' }}>
-        {formatTime(payload[0]?.payload?.seconds || 0)}
-      </div>
-      <div style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '2px' }}>
-        {payload[0]?.payload?.sessions || 0} sesiones
-      </div>
+      <div style={{ fontSize: '11px', color: 'var(--muted)', marginBottom: '4px' }}>{label}</div>
+      <div style={{ fontSize: '13px', fontFamily: 'var(--font-mono)', color: 'var(--cyan)' }}>{formatTime(secs)}</div>
+      <div style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '2px' }}>{payload[0]?.payload?.sessions || 0} sesiones</div>
     </div>
   )
 }
 
 export default function WeeklyActivityChart({ data }: Props) {
-  const hasData = data.some(d => d.seconds > 0)
+  const hasData   = data.some(d => d.seconds > 0)
+  const maxSecs   = Math.max(...data.map(d => d.seconds), 1)
+  const totalSecs = data.reduce((a, d) => a + d.seconds, 0)
+  const avgSecs   = Math.round(totalSecs / 7)
+  const bestDay   = data.reduce((a, b) => a.seconds > b.seconds ? a : b)
+
+  const chartData = data.map(d => ({
+    ...d,
+    minutes: Math.round(d.seconds / 60),
+    intensity: Math.round((d.seconds / maxSecs) * 100),
+  }))
 
   if (!hasData) return (
     <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--dim)', fontSize: '13px' }}>
@@ -38,18 +44,9 @@ export default function WeeklyActivityChart({ data }: Props) {
     </div>
   )
 
-  const chartData = data.map(d => ({
-    ...d,
-    minutes: Math.round(d.seconds / 60),
-  }))
-
-  const totalSecs  = data.reduce((a, d) => a + d.seconds, 0)
-  const avgSecs    = Math.round(totalSecs / 7)
-  const bestDay    = data.reduce((a, b) => a.seconds > b.seconds ? a : b)
-
   return (
     <div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginBottom: '16px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '8px', marginBottom: '16px' }}>
         {[
           { label: 'Total semana', value: formatTime(totalSecs), color: 'var(--cyan)' },
           { label: 'Promedio/día', value: formatTime(avgSecs),   color: 'var(--purple)' },
@@ -57,7 +54,7 @@ export default function WeeklyActivityChart({ data }: Props) {
         ].map(s => (
           <div key={s.label} style={{
             background: '#ffffff05', border: '1px solid var(--border)',
-            borderRadius: 'var(--radius-sm)', padding: '10px 12px', textAlign: 'center',
+            borderRadius: '8px', padding: '10px 12px', textAlign: 'center',
           }}>
             <div style={{ fontSize: '10px', color: 'var(--muted)', marginBottom: '4px' }}>{s.label}</div>
             <div style={{ fontSize: '14px', fontWeight: 600, fontFamily: 'var(--font-mono)', color: s.color }}>{s.value}</div>
@@ -66,33 +63,32 @@ export default function WeeklyActivityChart({ data }: Props) {
       </div>
 
       <ResponsiveContainer width="100%" height={200}>
-        <AreaChart data={chartData} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
+        <ComposedChart data={chartData} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
           <defs>
-            <linearGradient id="cyanGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%"  stopColor="#00F5FF" stopOpacity={0.3} />
-              <stop offset="95%" stopColor="#00F5FF" stopOpacity={0} />
+            <linearGradient id="barGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%"   stopColor="#B026FF" stopOpacity={0.9} />
+              <stop offset="100%" stopColor="#B026FF" stopOpacity={0.3} />
             </linearGradient>
           </defs>
-          <CartesianGrid strokeDasharray="3 3" stroke="#1F2937" vertical={false} />
-          <XAxis
-            dataKey="label"
-            tick={{ fill: 'var(--muted)', fontSize: 11 }}
-            axisLine={false} tickLine={false}
-          />
-          <YAxis
-            tick={{ fill: 'var(--muted)', fontSize: 11 }}
-            axisLine={false} tickLine={false}
-            tickFormatter={v => `${v}m`}
-          />
-          <Tooltip content={<CustomTooltip />} />
-          <Area
+          <CartesianGrid strokeDasharray="3 3" stroke="#1F293744" vertical={false} />
+          <XAxis dataKey="label" tick={{ fill: 'var(--muted)', fontSize: 11 }} axisLine={false} tickLine={false} />
+          <YAxis tick={{ fill: 'var(--muted)', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => `${v}m`} />
+          <Tooltip content={<CustomTooltip />} cursor={{ fill: '#ffffff04' }} />
+          <Bar dataKey="minutes" fill="url(#barGrad)" radius={[6,6,0,0]} maxBarSize={40} animationDuration={1000}>
+            {chartData.map((d, i) => (
+              <Cell key={i}
+                fill={d.seconds === maxSecs ? '#00F5FF' : 'url(#barGrad)'}
+                style={{ filter: d.seconds === maxSecs ? 'drop-shadow(0 0 8px #00F5FF88)' : 'none' }}
+              />
+            ))}
+          </Bar>
+          <Line
             type="monotone" dataKey="minutes"
-            stroke="#00F5FF" strokeWidth={2}
-            fill="url(#cyanGrad)"
-            dot={{ fill: '#00F5FF', strokeWidth: 0, r: 4 }}
-            activeDot={{ r: 6, fill: '#00F5FF', stroke: '#00F5FF', strokeWidth: 3, strokeOpacity: 0.4 }}
+            stroke="#00FF88" strokeWidth={2} dot={false}
+            strokeDasharray="4 4"
+            animationDuration={1500}
           />
-        </AreaChart>
+        </ComposedChart>
       </ResponsiveContainer>
     </div>
   )

@@ -1,16 +1,19 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { useGoals } from '@/hooks/useGoals'
 import GoalCard from '@/components/goals/GoalCard'
 import CreateGoalModal from '@/components/goals/CreateGoalModal'
 import TopBar from '@/components/layout/TopBar'
 import Badge from '@/components/ui/Badge'
-import { Target, Repeat2, Clock, Star, Flame } from 'lucide-react'
+import Button from '@/components/ui/Button'
+import { Target, Repeat2, Clock, Star, Flame, Plus } from 'lucide-react'
 
 export default function DashboardPage() {
   const { goals, loading } = useGoals()
   const [showModal, setShowModal] = useState(false)
+  const router = useRouter()
 
   const metas   = goals.filter(g => g.type === 'goal')
   const habitos = goals.filter(g => g.type === 'habit')
@@ -23,10 +26,10 @@ export default function DashboardPage() {
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px' }}>
           {[
-            { icon: <Clock size={14} />, label: 'Tiempo hoy',   value: '04:32', sub: '+1h vs ayer',        color: 'var(--cyan)',   glow: '#00F5FF' },
-            { icon: <Star size={14} />,  label: 'XP ganados',   value: '+340',  sub: 'Esta semana',         color: 'var(--purple)', glow: '#B026FF' },
-            { icon: <Target size={14} />,label: 'Submetas',     value: `${goals.reduce((a,g)=>(g.sub_goals?.filter(s=>s.completed_at).length||0)+a,0)}/${goals.reduce((a,g)=>(g.sub_goals?.length||0)+a,0)}`, sub: 'completadas', color: 'var(--green)', glow: '#00FF88' },
-            { icon: <Flame size={14} />, label: 'Racha hábitos',value: '14d',   sub: 'Récord: 21d',         color: 'var(--amber)', glow: '#FFB800' },
+            { icon: <Clock size={14} />, label: 'Tiempo hoy',    value: '04:32', sub: '+1h vs ayer',   color: 'var(--cyan)',   glow: '#00F5FF' },
+            { icon: <Star size={14} />,  label: 'XP ganados',    value: '+340',  sub: 'Esta semana',    color: 'var(--purple)', glow: '#B026FF' },
+            { icon: <Target size={14} />,label: 'Submetas',      value: `${goals.reduce((a,g)=>(g.sub_goals?.filter(s=>s.completed_at).length||0)+a,0)}/${goals.reduce((a,g)=>(g.sub_goals?.length||0)+a,0)}`, sub: 'completadas', color: 'var(--green)', glow: '#00FF88' },
+            { icon: <Flame size={14} />, label: 'Racha hábitos', value: '14d',   sub: 'Récord: 21d',    color: 'var(--amber)',  glow: '#FFB800' },
           ].map(s => (
             <div key={s.label} style={{
               background: 'var(--surface)', border: '1px solid var(--border)',
@@ -60,7 +63,13 @@ export default function DashboardPage() {
                   <Badge color="gray">{metas.length} activas</Badge>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '12px' }}>
-                  {metas.map(g => <GoalCard key={g.id} goal={g} onClick={() => {}} />)}
+                  {metas.map(g => (
+                    <GoalCard
+                      key={g.id}
+                      goal={g}
+                      onClick={() => router.push(`/goals/${g.id}`)}
+                    />
+                  ))}
                 </div>
               </div>
             )}
@@ -73,7 +82,13 @@ export default function DashboardPage() {
                   <Badge color="gray">{habitos.length} activos</Badge>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '12px' }}>
-                  {habitos.map(g => <GoalCard key={g.id} goal={g} onClick={() => {}} />)}
+                  {habitos.map(g => (
+                    <GoalCard
+                      key={g.id}
+                      goal={g}
+                      onClick={() => router.push(`/goals/${g.id}`)}
+                    />
+                  ))}
                 </div>
               </div>
             )}

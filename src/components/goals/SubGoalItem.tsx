@@ -1,0 +1,119 @@
+'use client'
+
+import { useState } from 'react'
+import { SubGoal } from '@/types'
+import { createClient } from '@/lib/supabase'
+import { Check, Clock, Calendar, ChevronRight } from 'lucide-react'
+
+interface Props {
+  subGoal: SubGoal
+  index: number
+  color: string
+  onComplete: (id: string) => void
+}
+
+export default function SubGoalItem({ subGoal, index, color, onComplete }: Props) {
+  const [loading, setLoading] = useState(false)
+  const done = !!subGoal.completed_at
+
+  async function handleComplete() {
+    if (done || loading) return
+    setLoading(true)
+    const supabase = createClient()
+    await supabase
+      .from('sub_goals')
+      .update({ completed_at: new Date().toISOString() })
+      .eq('id', subGoal.id)
+
+    await supabase
+      .from('avatar_state')
+      .update({ current_subgoal_index: index + 1, xp_total: (index + 1) * 50 })
+      .eq('goal_id', subGoal.goal_id)
+
+    onComplete(subGoal.id)
+    setLoading(false)
+  }
+
+  const isOverdue = !done && subGoal.due_date &&
+    new Date(subGoal.due_date) < new Date()
+
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'flex-start', gap: '14px',
+      padding: '16px', borderRadius: 'var(--radius-md)',
+      background: done ? `${color}08` : 'var(--surface)',
+      border: `1px solid ${done ? color + '30' : 'var(--border)'}`,
+      transition: 'all 0.3s ease',
+      opacity: done ? 0.75 : 1,
+    }}>
+      <button
+        onClick={handleComplete}
+        disabled={done || loading}
+        style={{
+          width: '24px', height: '24px', borderRadius: '50%', flexShrink: 0,
+          border: `2px solid ${done ? color : 'var(--dim)'}`,
+          background: done ? color : 'transparent',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          cursor: done ? 'default' : 'pointer',
+          transition: 'all 0.3s ease',
+          boxShadow: done ? `0 0 8px ${color}66` : 'none',
+          marginTop: '1px',
+        }}
+      >
+        {done && <Check size={13} color="#0A0E1A" strokeWidth={3} />}
+      </button>
+
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+          <span style={{
+            fontSize: '10px', fontFamily: 'var(--font-mono)',
+            color: done ? color : 'var(--dim)',
+            background: done ? `${color}15` : 'var(--border)',
+            padding: '2px 6px', borderRadius: '4px',
+          }}>
+            #{String(index + 1).padStart(2, '0')}
+          </span>
+          <span style={{
+            fontSize: '14px', fontWeight: 500,
+            color: done ? 'var(--muted)' : 'var(--text)',
+            textDecoration: done ? 'line-through' : 'none',
+            transition: 'all 0.3s',
+          }}>
+            {subGoal.title}
+          </span>
+        </div>
+
+        {subGoal.description && (
+          <p style={{ fontSize: '12px', color: 'var(--muted)', margin: '0 0 6px', lineHeight: 1.5 }}>
+            {subGoal.description}
+          </p>
+        )}
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+          {subGoal.due_date && (
+            <span style={{
+              display: 'flex', alignItems: 'center', gap: '4px',
+              fontSize: '11px',
+              color: isOverdue ? 'var(--red)' : done ? 'var(--muted)' : 'var(--muted)',
+            }}>
+              <Calendar size={11} />
+              {new Date(subGoal.due_date).toLocaleDateString('es-VE', { day: 'numeric', month: 'short' })}
+              {subGoal.due_time && ` · ${subGoal.due_time.slice(0, 5)}`}
+              {isOverdue && ' · Vencida'}
+            </span>
+          )}
+          {done && subGoal.completed_at && (
+            <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color }}>
+              <Check size={11} />
+              Completada {new Date(subGoal.completed_at).toLocaleDateString('es-VE', { day: 'numeric', month: 'short' })}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {!done && (
+        <ChevronRight size={16} color="var(--dim)" style={{ flexShrink: 0, marginTop: '2px' }} />
+      )}
+    </div>
+  )
+}

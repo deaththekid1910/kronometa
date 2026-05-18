@@ -1,17 +1,17 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
-import { useRouter } from 'next/navigation'
 import { useXPStore } from '@/store/xpStore'
+import { getUserXP } from '@/lib/gamification'
 import {
   LayoutDashboard, Target, Repeat2, BarChart2,
   Trophy, Settings, LogOut, Hexagon, X, Menu
 } from 'lucide-react'
 
-const links = [
+const navLinks = [
   { href: '/dashboard',    icon: LayoutDashboard, label: 'Dashboard' },
   { href: '/goals',        icon: Target,          label: 'Metas' },
   { href: '/habits',       icon: Repeat2,         label: 'Hábitos' },
@@ -19,11 +19,46 @@ const links = [
   { href: '/achievements', icon: Trophy,          label: 'Logros' },
 ]
 
+interface Project { id: string; title: string; color: string }
+interface UserProfile { name: string; initials: string }
+
 export default function MobileNav() {
-  const [open, setOpen]  = useState(false)
-  const pathname         = usePathname()
-  const router           = useRouter()
-  const { levelInfo }    = useXPStore()
+  const [open, setOpen]         = useState(false)
+  const [projects, setProjects] = useState<Project[]>([])
+  const [profile,  setProfile]  = useState<UserProfile>({ name: '', initials: '' })
+  const pathname                = usePathname()
+  const router                  = useRouter()
+  const { levelInfo, setXP }    = useXPStore()
+
+  useEffect(() => { loadData() }, [])
+
+  async function loadData() {
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+
+    const name     = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Usuario'
+    const parts    = name.trim().split(' ')
+    const initials = parts.length >= 2
+      ? parts[0][0].toUpperCase() + parts[1][0].toUpperCase()
+      : name.slice(0, 2).toUpperCase()
+
+    setProfile({ name, initials })
+
+    const { data: goals } = await supabase
+      .from('goals')
+      .select('id, title, color')
+      .eq('user_id', user.id)
+      .eq('type', 'goal')
+      .eq('archived', false)
+      .order('created_at', { ascending: false })
+      .limit(4)
+
+    if (goals) setProjects(goals.map(g => ({ id: g.id, title: g.title, color: g.color })))
+
+    const xp = await getUserXP(user.id)
+    setXP(xp)
+  }
 
   async function handleLogout() {
     const supabase = createClient()
@@ -61,13 +96,10 @@ export default function MobileNav() {
               {levelInfo.xp} XP
             </span>
           </div>
-          <button
-            onClick={() => setOpen(true)}
-            style={{
-              background: 'none', border: 'none', color: 'var(--text)',
-              cursor: 'pointer', padding: '4px', display: 'flex',
-            }}
-          >
+          <button onClick={() => setOpen(true)} style={{
+            background: 'none', border: 'none', color: 'var(--text)',
+            cursor: 'pointer', padding: '4px', display: 'flex',
+          }}>
             <Menu size={22} />
           </button>
         </div>
@@ -75,13 +107,10 @@ export default function MobileNav() {
 
       {/* OVERLAY */}
       {open && (
-        <div
-          onClick={() => setOpen(false)}
-          style={{
-            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)',
-            backdropFilter: 'blur(4px)', zIndex: 48,
-          }}
-        />
+        <div onClick={() => setOpen(false)} style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)',
+          backdropFilter: 'blur(4px)', zIndex: 48,
+        }} />
       )}
 
       {/* DRAWER */}
@@ -92,20 +121,46 @@ export default function MobileNav() {
         transform: open ? 'translateX(0)' : 'translateX(-100%)',
         transition: 'transform 0.25s ease',
         display: 'flex', flexDirection: 'column',
-        padding: '16px 12px',
+        padding: '16px 12px', overflowY: 'auto',
       }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', padding: '0 8px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', padding: '0 8px' }}>
           <span style={{ fontSize: '15px', fontWeight: 600 }}>
             Krono<span style={{ color: 'var(--cyan)' }}>Meta</span>
           </span>
-          <button onClick={() => setOpen(false)} style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', display: 'flex' }}>
+          <button onClick={() => setOpen(false)} style={{
+            background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', display: 'flex',
+          }}>
             <X size={20} />
           </button>
         </div>
 
+        {/* PERFIL */}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: '10px',
+          padding: '12px', borderRadius: 'var(--radius-md)',
+          background: '#ffffff05', border: '1px solid var(--border)',
+          marginBottom: '20px',
+        }}>
+          <div style={{
+            width: '36px', height: '36px', borderRadius: '9px', flexShrink: 0,
+            background: 'linear-gradient(135deg,var(--cyan),var(--purple))',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: '13px', fontWeight: 700, color: '#0A0E1A',
+          }}>{profile.initials || '..'}</div>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: '13px', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {profile.name || '...'}
+            </div>
+            <div style={{ fontSize: '11px', color: 'var(--cyan)', fontFamily: 'var(--font-mono)' }}>
+              Nv.{levelInfo.level} · {levelInfo.xp} XP
+            </div>
+          </div>
+        </div>
+
+        {/* NAV */}
         <div style={{ fontSize: '10px', color: 'var(--dim)', letterSpacing: '1.5px', padding: '0 8px', marginBottom: '6px' }}>NAVEGACIÓN</div>
         <nav style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginBottom: '20px' }}>
-          {links.map(({ href, icon: Icon, label }) => {
+          {navLinks.map(({ href, icon: Icon, label }) => {
             const active = pathname === href
             return (
               <Link key={href} href={href} onClick={() => setOpen(false)} style={{
@@ -124,18 +179,36 @@ export default function MobileNav() {
           })}
         </nav>
 
+        {/* PROYECTOS */}
+        {projects.length > 0 && (
+          <>
+            <div style={{ fontSize: '10px', color: 'var(--dim)', letterSpacing: '1.5px', padding: '0 8px', marginBottom: '6px' }}>PROYECTOS</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginBottom: '20px' }}>
+              {projects.map(p => (
+                <Link key={p.id} href={`/goals/${p.id}`} onClick={() => setOpen(false)} style={{
+                  display: 'flex', alignItems: 'center', gap: '10px',
+                  padding: '9px 12px', borderRadius: 'var(--radius-sm)',
+                  color: 'var(--muted)', fontSize: '13px',
+                  transition: 'all var(--transition)', textDecoration: 'none',
+                }}>
+                  <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: p.color, flexShrink: 0, boxShadow: `0 0 6px ${p.color}88` }} />
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.title}</span>
+                </Link>
+              ))}
+            </div>
+          </>
+        )}
+
         <div style={{ flex: 1 }} />
 
-        {/* XP BAR en drawer */}
+        {/* XP BAR */}
         <div style={{
           background: 'var(--surface)', border: '1px solid #B026FF33',
-          borderRadius: 'var(--radius-md)', padding: '12px', marginBottom: '12px',
+          borderRadius: 'var(--radius-md)', padding: '12px', marginBottom: '10px',
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
             <span style={{ fontSize: '12px', fontWeight: 500 }}>{levelInfo.title}</span>
-            <span style={{ fontSize: '11px', fontFamily: 'var(--font-mono)', color: 'var(--muted)' }}>
-              Nv. {levelInfo.level}
-            </span>
+            <span style={{ fontSize: '11px', fontFamily: 'var(--font-mono)', color: 'var(--muted)' }}>Nv.{levelInfo.level}</span>
           </div>
           <div style={{ height: '4px', background: 'var(--border)', borderRadius: '4px', overflow: 'hidden' }}>
             <div style={{
@@ -149,14 +222,24 @@ export default function MobileNav() {
           </div>
         </div>
 
+        {/* AJUSTES + LOGOUT */}
+        <Link href="/settings" onClick={() => setOpen(false)} style={{
+          display: 'flex', alignItems: 'center', gap: '10px',
+          padding: '10px 12px', borderRadius: 'var(--radius-sm)',
+          color: 'var(--muted)', fontSize: '13px', marginBottom: '6px',
+          transition: 'all var(--transition)', textDecoration: 'none',
+        }}>
+          <Settings size={16} /> Ajustes
+        </Link>
+
         <button onClick={handleLogout} style={{
           display: 'flex', alignItems: 'center', gap: '10px',
-          padding: '11px 12px', borderRadius: 'var(--radius-sm)',
+          padding: '10px 12px', borderRadius: 'var(--radius-sm)',
           background: 'none', border: '1px solid var(--border)',
-          color: 'var(--muted)', fontSize: '14px', cursor: 'pointer', width: '100%',
+          color: 'var(--muted)', fontSize: '13px', cursor: 'pointer',
+          width: '100%', transition: 'all var(--transition)',
         }}>
-          <LogOut size={16} />
-          Cerrar sesión
+          <LogOut size={16} /> Cerrar sesión
         </button>
       </div>
     </>

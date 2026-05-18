@@ -6,14 +6,15 @@ import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import {
   LayoutDashboard, Target, Repeat2, BarChart2,
-  Settings, LogOut, Hexagon
+  Settings, LogOut, Hexagon, Trophy
 } from 'lucide-react'
 
 const links = [
-  { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-  { href: '/goals',     icon: Target,          label: 'Metas' },
-  { href: '/habits',    icon: Repeat2,         label: 'Hábitos' },
-  { href: '/reports',   icon: BarChart2,       label: 'Reportes' },
+  { href: '/dashboard',    icon: LayoutDashboard, label: 'Dashboard' },
+  { href: '/goals',        icon: Target,          label: 'Metas' },
+  { href: '/habits',       icon: Repeat2,         label: 'Hábitos' },
+  { href: '/reports',      icon: BarChart2,       label: 'Reportes' },
+  { href: '/achievements', icon: Trophy,          label: 'Logros' },
 ]
 
 const projects = [

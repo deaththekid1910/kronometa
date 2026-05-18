@@ -2,8 +2,9 @@
 
 import { GoalTimeData } from '@/lib/reports'
 import { formatTime } from '@/lib/timer'
+import { useBreakpoint } from '@/hooks/useBreakpoint'
 import {
-  PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend
+  PieChart, Pie, Cell, Tooltip, ResponsiveContainer
 } from 'recharts'
 
 interface Props { data: GoalTimeData[] }
@@ -25,34 +26,45 @@ function CustomTooltip({ active, payload }: any) {
 }
 
 function CustomLabel({ cx, cy, midAngle, innerRadius, outerRadius, percent }: any) {
-  if (percent < 0.05) return null
+  if (percent < 0.07) return null
   const RADIAN = Math.PI / 180
   const radius = innerRadius + (outerRadius - innerRadius) * 0.5
   const x = cx + radius * Math.cos(-midAngle * RADIAN)
   const y = cy + radius * Math.sin(-midAngle * RADIAN)
   return (
     <text x={x} y={y} fill="#0A0E1A" textAnchor="middle" dominantBaseline="central"
-      fontSize={11} fontWeight={700} fontFamily="JetBrains Mono, monospace">
+      fontSize={10} fontWeight={700} fontFamily="JetBrains Mono, monospace">
       {`${(percent * 100).toFixed(0)}%`}
     </text>
   )
 }
 
 export default function TimeByGoalChart({ data }: Props) {
+  const bp       = useBreakpoint()
+  const isMobile = bp === 'mobile'
+
   if (data.length === 0) return (
     <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--dim)', fontSize: '13px' }}>
       Activa un cronómetro para ver distribución de tiempo.
     </div>
   )
 
+  const pieSize    = isMobile ? 160 : 200
+  const outerR     = isMobile ? 65  : 90
+  const innerR     = isMobile ? 38  : 55
+
   return (
-    <div style={{ display: 'flex', gap: '24px', alignItems: 'center' }}>
-      <div style={{ flex: '0 0 200px', height: '200px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', width: '100%', minWidth: 0 }}>
+
+      {/* TORTA — siempre centrada y con ancho controlado */}
+      <div style={{ width: '100%', height: `${pieSize}px`, minWidth: 0 }}>
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
-              data={data} cx="50%" cy="50%"
-              innerRadius={55} outerRadius={90}
+              data={data}
+              cx="50%" cy="50%"
+              innerRadius={innerR}
+              outerRadius={outerR}
               dataKey="totalSeconds"
               labelLine={false}
               label={<CustomLabel />}
@@ -60,7 +72,10 @@ export default function TimeByGoalChart({ data }: Props) {
               animationDuration={1200}
             >
               {data.map((d, i) => (
-                <Cell key={i} fill={d.color} stroke={d.color} strokeWidth={0}
+                <Cell
+                  key={i}
+                  fill={d.color}
+                  stroke="transparent"
                   style={{ filter: `drop-shadow(0 0 6px ${d.color}88)` }}
                 />
               ))}
@@ -70,15 +85,29 @@ export default function TimeByGoalChart({ data }: Props) {
         </ResponsiveContainer>
       </div>
 
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '10px' }}>
-        {data.map((d, i) => (
-          <div key={d.id}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: d.color, boxShadow: `0 0 6px ${d.color}` }} />
-                <span style={{ fontSize: '12px', color: 'var(--text)' }}>{d.title}</span>
+      {/* LISTA — siempre en columna para no desbordar */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%', minWidth: 0 }}>
+        {data.map(d => (
+          <div key={d.id} style={{ minWidth: 0 }}>
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              marginBottom: '5px', gap: '8px',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
+                <div style={{
+                  width: '8px', height: '8px', borderRadius: '50%',
+                  background: d.color, flexShrink: 0,
+                  boxShadow: `0 0 6px ${d.color}`,
+                }} />
+                <span style={{
+                  fontSize: '12px', color: 'var(--text)',
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                }}>{d.title}</span>
               </div>
-              <span style={{ fontSize: '12px', fontFamily: 'var(--font-mono)', color: d.color }}>{formatTime(d.totalSeconds)}</span>
+              <span style={{
+                fontSize: '12px', fontFamily: 'var(--font-mono)',
+                color: d.color, flexShrink: 0,
+              }}>{formatTime(d.totalSeconds)}</span>
             </div>
             <div style={{ height: '4px', background: 'var(--border)', borderRadius: '4px', overflow: 'hidden' }}>
               <div style={{
@@ -93,6 +122,7 @@ export default function TimeByGoalChart({ data }: Props) {
           </div>
         ))}
       </div>
+
     </div>
   )
 }

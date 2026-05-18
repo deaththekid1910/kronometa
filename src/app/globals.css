@@ -92,3 +92,26 @@ input, textarea, select { font-family: var(--font-sans); }
 .animate-in {
   animation: float-up 0.22s ease forwards;
 }
+
+/* ===================== RESPONSIVE ===================== */
+
+/* Tablet */
+@media (max-width: 1024px) {
+  .km-sidebar { display: none !important; }
+  .km-main    { width: 100% !important; }
+  .km-grid-4  { grid-template-columns: repeat(2, 1fr) !important; }
+  .km-grid-3  { grid-template-columns: repeat(2, 1fr) !important; }
+  .km-grid-2  { grid-template-columns: repeat(2, 1fr) !important; }
+  .km-grid-5  { grid-template-columns: repeat(3, 1fr) !important; }
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+  .km-grid-4  { grid-template-columns: 1fr !important; }
+  .km-grid-3  { grid-template-columns: 1fr !important; }
+  .km-grid-2  { grid-template-columns: 1fr !important; }
+  .km-grid-5  { grid-template-columns: repeat(2, 1fr) !important; }
+  .km-hide-mobile { display: none !important; }
+  .km-pad     { padding: 12px !important; }
+  .km-topbar-title { display: none !important; }
+}

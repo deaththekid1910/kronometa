@@ -3,20 +3,20 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import {
-  ACHIEVEMENTS, getUserAchievements, getUserXP,
+  ACHIEVEMENTS, getUserXP,
   getLevelInfo, checkAndUnlockAchievements
 } from '@/lib/gamification'
 import { useXPStore } from '@/store/xpStore'
 import AchievementCard from '@/components/gamification/AchievementCard'
 import Button from '@/components/ui/Button'
-import { Star, RefreshCw, Trophy, Zap, Lock } from 'lucide-react'
+import { RefreshCw, Trophy, Lock, Star } from 'lucide-react'
 
 export default function AchievementsPage() {
   const { levelInfo, setXP, setNewAchievements } = useXPStore()
-  const [unlockedKeys, setUnlockedKeys]           = useState<string[]>([])
-  const [unlockedDates, setUnlockedDates]         = useState<Record<string,string>>({})
-  const [loading, setLoading]                     = useState(true)
-  const [checking, setChecking]                   = useState(false)
+  const [unlockedKeys,  setUnlockedKeys]  = useState<string[]>([])
+  const [unlockedDates, setUnlockedDates] = useState<Record<string, string>>({})
+  const [loading,   setLoading]   = useState(true)
+  const [checking,  setChecking]  = useState(false)
 
   useEffect(() => { loadData() }, [])
 
@@ -24,17 +24,13 @@ export default function AchievementsPage() {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-
     const [xp, { data: achs }] = await Promise.all([
       getUserXP(user.id),
       supabase.from('achievements').select('key, unlocked_at').eq('user_id', user.id),
     ])
-
     setXP(xp)
-    const keys  = (achs || []).map(a => a.key)
-    const dates = Object.fromEntries((achs || []).map(a => [a.key, a.unlocked_at]))
-    setUnlockedKeys(keys)
-    setUnlockedDates(dates)
+    setUnlockedKeys((achs || []).map(a => a.key))
+    setUnlockedDates(Object.fromEntries((achs || []).map(a => [a.key, a.unlocked_at])))
     setLoading(false)
   }
 
@@ -43,7 +39,6 @@ export default function AchievementsPage() {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-
     const newOnes = await checkAndUnlockAchievements(user.id)
     if (newOnes.length > 0) {
       setNewAchievements(newOnes)
@@ -57,47 +52,41 @@ export default function AchievementsPage() {
   const total    = ACHIEVEMENTS.length
 
   return (
-    <div style={{ padding: '24px 20px', maxWidth: '900px', margin: '0 auto' }}>
+    <div style={{ padding: '24px 20px' }}>
+      <style>{`@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}} @keyframes glow-pulse{0%,100%{box-shadow:0 0 20px #B026FF88}50%{box-shadow:0 0 40px #B026FFcc,0 0 80px #00F5FF44}}`}</style>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <div>
           <h1 style={{ fontSize: '18px', fontWeight: 600, margin: '0 0 4px' }}>Logros y Nivel</h1>
           <p style={{ fontSize: '13px', color: 'var(--muted)', margin: 0 }}>Tu progreso en el sistema de gamificación</p>
         </div>
-        <Button
-          variant="ghost" size="sm"
+        <Button variant="ghost" size="sm"
           icon={<RefreshCw size={13} style={{ animation: checking ? 'spin 1s linear infinite' : 'none' }} />}
-          onClick={handleCheck}
-        >
+          onClick={handleCheck}>
           Verificar logros
         </Button>
       </div>
-      <style>{`@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
 
+      {/* PANEL DE NIVEL — horizontal */}
       <div style={{
         background: 'var(--surface)', border: '1px solid #B026FF44',
         borderRadius: 'var(--radius-lg)', padding: '24px', marginBottom: '20px',
-        boxShadow: '0 0 40px #B026FF18',
-        position: 'relative', overflow: 'hidden',
+        boxShadow: '0 0 40px #B026FF18', position: 'relative', overflow: 'hidden',
       }}>
-        <div style={{
-          position: 'absolute', top: '-40px', right: '-40px',
-          width: '140px', height: '140px', borderRadius: '50%',
-          background: 'radial-gradient(circle, #B026FF22, transparent)',
-          pointerEvents: 'none',
-        }} />
+        <div style={{ position: 'absolute', top: '-40px', right: '-40px', width: '140px', height: '140px', borderRadius: '50%', background: 'radial-gradient(circle,#B026FF22,transparent)', pointerEvents: 'none' }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '24px', flexWrap: 'nowrap' }}>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
           <div style={{
-            width: '72px', height: '72px', borderRadius: '50%',
-            background: 'linear-gradient(135deg, var(--purple), var(--cyan))',
+            width: '72px', height: '72px', borderRadius: '50%', flexShrink: 0,
+            background: 'linear-gradient(135deg,var(--purple),var(--cyan))',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: '28px', fontWeight: 700, color: '#0A0E1A',
-            fontFamily: 'var(--font-mono)', flexShrink: 0,
+            fontFamily: 'var(--font-mono)',
             boxShadow: '0 0 24px #B026FF66',
+            animation: 'glow-pulse 2s infinite',
           }}>{level}</div>
 
-          <div style={{ flex: 1, minWidth: '200px' }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginBottom: '4px' }}>
               <span style={{ fontSize: '20px', fontWeight: 600 }}>{title}</span>
               <span style={{ fontSize: '12px', color: 'var(--muted)' }}>Nivel {level}</span>
@@ -108,25 +97,28 @@ export default function AchievementsPage() {
             <div style={{ height: '8px', background: 'var(--border)', borderRadius: '8px', overflow: 'hidden' }}>
               <div style={{
                 height: '100%', width: `${progress}%`,
-                background: 'linear-gradient(90deg, var(--purple), var(--cyan))',
-                borderRadius: '8px',
-                boxShadow: '0 0 10px #B026FF88',
+                background: 'linear-gradient(90deg,var(--purple),var(--cyan))',
+                borderRadius: '8px', boxShadow: '0 0 10px #B026FF88',
                 transition: 'width 1s ease',
               }} />
             </div>
           </div>
 
-          <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+          {/* STATS en fila horizontal */}
+          <div style={{ display: 'flex', gap: '20px', flexShrink: 0 }}>
             {[
-              { icon: <Star size={14} />,   label: 'XP Total', value: levelInfo.xp,    color: 'var(--purple)' },
+              { icon: <Star size={14} />,   label: 'XP Total', value: levelInfo.xp,         color: 'var(--purple)' },
               { icon: <Trophy size={14} />, label: 'Logros',   value: `${unlocked}/${total}`, color: 'var(--amber)' },
             ].map(s => (
-              <div key={s.label} style={{ textAlign: 'center' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: s.color, marginBottom: '2px', justifyContent: 'center' }}>
+              <div key={s.label} style={{
+                background: 'var(--surface2)', border: '1px solid var(--border)',
+                borderRadius: 'var(--radius-md)', padding: '12px 18px', textAlign: 'center',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'center', color: s.color, marginBottom: '4px' }}>
                   {s.icon}
                   <span style={{ fontSize: '10px', color: 'var(--muted)' }}>{s.label}</span>
                 </div>
-                <div style={{ fontSize: '18px', fontWeight: 700, fontFamily: 'var(--font-mono)', color: s.color }}>{s.value}</div>
+                <div style={{ fontSize: '20px', fontWeight: 700, fontFamily: 'var(--font-mono)', color: s.color }}>{s.value}</div>
               </div>
             ))}
           </div>
@@ -139,33 +131,32 @@ export default function AchievementsPage() {
         </div>
       ) : (
         <>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
-            <Trophy size={13} color="var(--amber)" />
-            <span style={{ fontSize: '11px', color: 'var(--muted)', letterSpacing: '1px', fontWeight: 500 }}>
-              LOGROS DESBLOQUEADOS · {unlocked}
-            </span>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '10px', marginBottom: '24px' }}>
-            {ACHIEVEMENTS.filter(a => unlockedKeys.includes(a.key)).map(a => (
-              <AchievementCard
-                key={a.key}
-                achievement={a}
-                unlocked={true}
-                unlockedAt={unlockedDates[a.key]}
-              />
-            ))}
-          </div>
+          {/* DESBLOQUEADOS — grid 3 columnas horizontal */}
+          {unlocked > 0 && (
+            <div style={{ marginBottom: '24px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                <Trophy size={13} color="var(--amber)" />
+                <span style={{ fontSize: '11px', color: 'var(--muted)', letterSpacing: '1px', fontWeight: 500 }}>DESBLOQUEADOS · {unlocked}</span>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
+                {ACHIEVEMENTS.filter(a => unlockedKeys.includes(a.key)).map(a => (
+                  <AchievementCard key={a.key} achievement={a} unlocked={true} unlockedAt={unlockedDates[a.key]} />
+                ))}
+              </div>
+            </div>
+          )}
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
-            <Lock size={13} color="var(--dim)" />
-            <span style={{ fontSize: '11px', color: 'var(--muted)', letterSpacing: '1px', fontWeight: 500 }}>
-              POR DESBLOQUEAR · {total - unlocked}
-            </span>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '10px' }}>
-            {ACHIEVEMENTS.filter(a => !unlockedKeys.includes(a.key)).map(a => (
-              <AchievementCard key={a.key} achievement={a} unlocked={false} />
-            ))}
+          {/* BLOQUEADOS — grid 3 columnas horizontal */}
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+              <Lock size={13} color="var(--dim)" />
+              <span style={{ fontSize: '11px', color: 'var(--muted)', letterSpacing: '1px', fontWeight: 500 }}>POR DESBLOQUEAR · {total - unlocked}</span>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
+              {ACHIEVEMENTS.filter(a => !unlockedKeys.includes(a.key)).map(a => (
+                <AchievementCard key={a.key} achievement={a} unlocked={false} />
+              ))}
+            </div>
           </div>
         </>
       )}

@@ -3,7 +3,9 @@
 import { useState } from 'react'
 import { SubGoal } from '@/types'
 import { createClient } from '@/lib/supabase'
-import { Check, Clock, Calendar, ChevronRight } from 'lucide-react'
+import { awardXP, checkAndUnlockAchievements } from '@/lib/gamification'
+import { useXPStore } from '@/store/xpStore'
+import { Check, Calendar, ChevronRight } from 'lucide-react'
 
 interface Props {
   subGoal: SubGoal
@@ -14,12 +16,16 @@ interface Props {
 
 export default function SubGoalItem({ subGoal, index, color, onComplete }: Props) {
   const [loading, setLoading] = useState(false)
+  const { addXP, setNewAchievements } = useXPStore()
   const done = !!subGoal.completed_at
 
   async function handleComplete() {
     if (done || loading) return
     setLoading(true)
     const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+
     await supabase
       .from('sub_goals')
       .update({ completed_at: new Date().toISOString() })
@@ -27,15 +33,22 @@ export default function SubGoalItem({ subGoal, index, color, onComplete }: Props
 
     await supabase
       .from('avatar_state')
-      .update({ current_subgoal_index: index + 1, xp_total: (index + 1) * 50 })
+      .update({ current_subgoal_index: index + 1 })
       .eq('goal_id', subGoal.goal_id)
+      .eq('user_id', user.id)
+
+    const XP_PER_SUBGOAL = 50
+    await awardXP(user.id, subGoal.goal_id, XP_PER_SUBGOAL)
+    addXP(XP_PER_SUBGOAL)
+
+    const newAchs = await checkAndUnlockAchievements(user.id)
+    if (newAchs.length > 0) setNewAchievements(newAchs)
 
     onComplete(subGoal.id)
     setLoading(false)
   }
 
-  const isOverdue = !done && subGoal.due_date &&
-    new Date(subGoal.due_date) < new Date()
+  const isOverdue = !done && subGoal.due_date && new Date(subGoal.due_date) < new Date()
 
   return (
     <div style={{
@@ -43,8 +56,7 @@ export default function SubGoalItem({ subGoal, index, color, onComplete }: Props
       padding: '16px', borderRadius: 'var(--radius-md)',
       background: done ? `${color}08` : 'var(--surface)',
       border: `1px solid ${done ? color + '30' : 'var(--border)'}`,
-      transition: 'all 0.3s ease',
-      opacity: done ? 0.75 : 1,
+      transition: 'all 0.3s ease', opacity: done ? 0.75 : 1,
     }}>
       <button
         onClick={handleComplete}
@@ -70,17 +82,13 @@ export default function SubGoalItem({ subGoal, index, color, onComplete }: Props
             color: done ? color : 'var(--dim)',
             background: done ? `${color}15` : 'var(--border)',
             padding: '2px 6px', borderRadius: '4px',
-          }}>
-            #{String(index + 1).padStart(2, '0')}
-          </span>
+          }}>#{String(index + 1).padStart(2, '0')}</span>
           <span style={{
             fontSize: '14px', fontWeight: 500,
             color: done ? 'var(--muted)' : 'var(--text)',
             textDecoration: done ? 'line-through' : 'none',
             transition: 'all 0.3s',
-          }}>
-            {subGoal.title}
-          </span>
+          }}>{subGoal.title}</span>
         </div>
 
         {subGoal.description && (
@@ -91,11 +99,7 @@ export default function SubGoalItem({ subGoal, index, color, onComplete }: Props
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
           {subGoal.due_date && (
-            <span style={{
-              display: 'flex', alignItems: 'center', gap: '4px',
-              fontSize: '11px',
-              color: isOverdue ? 'var(--red)' : done ? 'var(--muted)' : 'var(--muted)',
-            }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: isOverdue ? 'var(--red)' : 'var(--muted)' }}>
               <Calendar size={11} />
               {new Date(subGoal.due_date).toLocaleDateString('es-VE', { day: 'numeric', month: 'short' })}
               {subGoal.due_time && ` · ${subGoal.due_time.slice(0, 5)}`}
@@ -108,12 +112,13 @@ export default function SubGoalItem({ subGoal, index, color, onComplete }: Props
               Completada {new Date(subGoal.completed_at).toLocaleDateString('es-VE', { day: 'numeric', month: 'short' })}
             </span>
           )}
+          {done && (
+            <span style={{ fontSize: '11px', color, fontFamily: 'var(--font-mono)' }}>+50 XP</span>
+          )}
         </div>
       </div>
 
-      {!done && (
-        <ChevronRight size={16} color="var(--dim)" style={{ flexShrink: 0, marginTop: '2px' }} />
-      )}
+      {!done && <ChevronRight size={16} color="var(--dim)" style={{ flexShrink: 0, marginTop: '2px' }} />}
     </div>
   )
 }

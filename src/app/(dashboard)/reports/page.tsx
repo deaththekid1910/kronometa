@@ -6,11 +6,10 @@ import {
   getTimeByGoal, getWeeklyActivity, getHabitConsistency,
   GoalTimeData, DayActivity, HabitConsistency
 } from '@/lib/reports'
-import TimeByGoalChart      from '@/components/reports/TimeByGoalChart'
-import WeeklyActivityChart  from '@/components/reports/WeeklyActivityChart'
+import TimeByGoalChart       from '@/components/reports/TimeByGoalChart'
+import WeeklyActivityChart   from '@/components/reports/WeeklyActivityChart'
 import HabitConsistencyChart from '@/components/reports/HabitConsistencyChart'
-import CandlestickChart     from '@/components/reports/CandlestickChart'
-import { formatTime } from '@/lib/timer'
+import CandlestickChart      from '@/components/reports/CandlestickChart'
 import { BarChart2, RefreshCw, PieChart, Activity, Zap } from 'lucide-react'
 import Button from '@/components/ui/Button'
 
@@ -28,13 +27,11 @@ export default function ReportsPage() {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-
     const [time, week, habits] = await Promise.all([
       getTimeByGoal(user.id),
       getWeeklyActivity(user.id),
       getHabitConsistency(user.id),
     ])
-
     setTimeData(time)
     setWeekData(week)
     setHabitData(habits)
@@ -49,53 +46,30 @@ export default function ReportsPage() {
     ? Math.round(habitData.reduce((a, h) => a + h.pct, 0) / habitData.length)
     : 0
 
-  const panel = (
-    title: string,
-    icon: React.ReactNode,
-    iconColor: string,
-    children: React.ReactNode,
-    fullWidth = false
-  ) => (
-    <div style={{
-      background: 'var(--surface)', border: '1px solid var(--border)',
-      borderRadius: 'var(--radius-lg)', padding: '20px',
-      gridColumn: fullWidth ? '1 / -1' : undefined,
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '18px' }}>
-        <span style={{ color: iconColor }}>{icon}</span>
-        <span style={{ fontSize: '11px', color: 'var(--muted)', letterSpacing: '1px', fontWeight: 500 }}>
-          {title}
-        </span>
-      </div>
-      {children}
-    </div>
-  )
-
   return (
     <div style={{ padding: '24px 20px' }}>
       <style>{`@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <div>
           <h1 style={{ fontSize: '18px', fontWeight: 600, margin: '0 0 4px' }}>Reportes</h1>
           <p style={{ fontSize: '13px', color: 'var(--muted)', margin: 0 }}>Análisis completo de tu tiempo y consistencia</p>
         </div>
-        <Button
-          variant="ghost" size="sm"
+        <Button variant="ghost" size="sm"
           icon={<RefreshCw size={13} style={{ animation: refreshing ? 'spin 1s linear infinite' : 'none' }} />}
-          onClick={loadReports}
-        >
+          onClick={loadReports}>
           Actualizar
         </Button>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(140px,1fr))', gap: '10px', marginBottom: '20px' }}>
+      {/* STATS — 5 columnas horizontales */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '10px', marginBottom: '20px' }}>
         {[
-          { label: 'Horas totales',   value: `${totalHours}h`,    color: 'var(--cyan)' },
-          { label: 'Metas activas',   value: timeData.filter(d => d.type === 'goal').length, color: 'var(--purple)' },
-          { label: 'Consistencia',    value: `${habitAvgPct}%`,   color: habitAvgPct >= 70 ? 'var(--green)' : 'var(--amber)' },
-          { label: 'Meta top',        value: topGoal?.title.slice(0,10) + (topGoal && topGoal.title.length > 10 ? '…' : '') || '—', color: topGoal?.color || 'var(--muted)' },
-          { label: 'Mejor hábito',    value: habitData[0]?.title.slice(0,10) + (habitData[0] && habitData[0].title.length > 10 ? '…' : '') || '—', color: 'var(--green)' },
+          { label: 'Horas totales',  value: `${totalHours}h`,  color: 'var(--cyan)' },
+          { label: 'Metas activas',  value: timeData.filter(d => d.type === 'goal').length, color: 'var(--purple)' },
+          { label: 'Consistencia',   value: `${habitAvgPct}%`, color: habitAvgPct >= 70 ? 'var(--green)' : 'var(--amber)' },
+          { label: 'Meta top',       value: topGoal?.title.slice(0, 10) + (topGoal && topGoal.title.length > 10 ? '…' : '') || '—', color: topGoal?.color || 'var(--muted)' },
+          { label: 'Mejor hábito',   value: habitData[0]?.title.slice(0, 10) + (habitData[0] && habitData[0].title.length > 10 ? '…' : '') || '—', color: 'var(--green)' },
         ].map(s => (
           <div key={s.label} style={{
             background: 'var(--surface)', border: '1px solid var(--border)',
@@ -112,16 +86,25 @@ export default function ReportsPage() {
           cargando reportes...
         </div>
       ) : (
+        /* GRÁFICAS — grid 2x2 horizontal */
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-
-          {panel('DISTRIBUCIÓN DE TIEMPO · TORTA', <PieChart size={14} />, 'var(--cyan)', <TimeByGoalChart data={timeData} />, false)}
-
-          {panel('ACTIVIDAD SEMANAL · BARRAS + LÍNEA', <Activity size={14} />, 'var(--purple)', <WeeklyActivityChart data={weekData} />, false)}
-
-          {panel('TIEMPO POR META · VELAS', <BarChart2 size={14} />, 'var(--amber)', <CandlestickChart data={timeData} />, false)}
-
-          {panel('CONSISTENCIA DE HÁBITOS · RADAR', <Zap size={14} />, 'var(--green)', <HabitConsistencyChart data={habitData} />, false)}
-
+          {[
+            { title: 'DISTRIBUCIÓN · TORTA',        icon: <PieChart size={13} />,  color: 'var(--cyan)',   chart: <TimeByGoalChart data={timeData} /> },
+            { title: 'ACTIVIDAD SEMANAL · BARRAS',  icon: <Activity size={13} />,  color: 'var(--purple)', chart: <WeeklyActivityChart data={weekData} /> },
+            { title: 'TIEMPO POR META · VELAS',     icon: <BarChart2 size={13} />, color: 'var(--amber)',  chart: <CandlestickChart data={timeData} /> },
+            { title: 'CONSISTENCIA HÁBITOS · RADAR',icon: <Zap size={13} />,       color: 'var(--green)',  chart: <HabitConsistencyChart data={habitData} /> },
+          ].map(p => (
+            <div key={p.title} style={{
+              background: 'var(--surface)', border: '1px solid var(--border)',
+              borderRadius: 'var(--radius-lg)', padding: '20px',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+                <span style={{ color: p.color }}>{p.icon}</span>
+                <span style={{ fontSize: '11px', color: 'var(--muted)', letterSpacing: '1px', fontWeight: 500 }}>{p.title}</span>
+              </div>
+              {p.chart}
+            </div>
+          ))}
         </div>
       )}
     </div>

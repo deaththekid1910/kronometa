@@ -5,6 +5,7 @@ import { formatTime } from '@/lib/timer'
 import { Plus } from 'lucide-react'
 import Badge from '@/components/ui/Badge'
 import Button from '@/components/ui/Button'
+import NotificationBell from '@/components/notifications/NotificationBell'
 
 interface Props {
   onNewGoal?: () => void
@@ -13,9 +14,9 @@ interface Props {
 export default function TopBar({ onNewGoal }: Props) {
   const { activeSession, currentSeconds } = useTimerStore()
 
-  const now = new Date()
+  const now     = new Date()
   const dateStr = now.toLocaleDateString('es-VE', {
-    weekday: 'long', day: 'numeric', month: 'long'
+    weekday: 'long', day: 'numeric', month: 'long',
   })
 
   return (
@@ -40,6 +41,9 @@ export default function TopBar({ onNewGoal }: Props) {
             <span style={{ color: 'var(--dim)', fontSize: '11px' }}>corriendo</span>
           </Badge>
         )}
+
+        <NotificationBell />
+
         <Button
           variant="primary"
           size="sm"

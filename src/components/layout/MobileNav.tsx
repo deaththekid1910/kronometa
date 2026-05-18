@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { useXPStore } from '@/store/xpStore'
 import { getUserXP } from '@/lib/gamification'
+import NotificationBell from '@/components/notifications/NotificationBell'
 import {
   LayoutDashboard, Target, Repeat2, BarChart2,
   Trophy, Settings, LogOut, Hexagon, X, Menu
@@ -23,7 +24,7 @@ interface Project { id: string; title: string; color: string }
 interface UserProfile { name: string; initials: string }
 
 export default function MobileNav() {
-  const [open, setOpen]         = useState(false)
+  const [open,     setOpen]     = useState(false)
   const [projects, setProjects] = useState<Project[]>([])
   const [profile,  setProfile]  = useState<UserProfile>({ name: '', initials: '' })
   const pathname                = usePathname()
@@ -84,7 +85,7 @@ export default function MobileNav() {
           </span>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <div style={{
               width: '22px', height: '22px', borderRadius: '6px',
@@ -96,6 +97,10 @@ export default function MobileNav() {
               {levelInfo.xp} XP
             </span>
           </div>
+
+          {/* CAMPANA DE NOTIFICACIONES */}
+          <NotificationBell />
+
           <button onClick={() => setOpen(true)} style={{
             background: 'none', border: 'none', color: 'var(--text)',
             cursor: 'pointer', padding: '4px', display: 'flex',
@@ -123,12 +128,16 @@ export default function MobileNav() {
         display: 'flex', flexDirection: 'column',
         padding: '16px 12px', overflowY: 'auto',
       }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', padding: '0 8px' }}>
+        <div style={{
+          display: 'flex', justifyContent: 'space-between',
+          alignItems: 'center', marginBottom: '20px', padding: '0 8px',
+        }}>
           <span style={{ fontSize: '15px', fontWeight: 600 }}>
             Krono<span style={{ color: 'var(--cyan)' }}>Meta</span>
           </span>
           <button onClick={() => setOpen(false)} style={{
-            background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', display: 'flex',
+            background: 'none', border: 'none',
+            color: 'var(--muted)', cursor: 'pointer', display: 'flex',
           }}>
             <X size={20} />
           </button>
@@ -148,7 +157,10 @@ export default function MobileNav() {
             fontSize: '13px', fontWeight: 700, color: '#0A0E1A',
           }}>{profile.initials || '..'}</div>
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: '13px', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <div style={{
+              fontSize: '13px', fontWeight: 500,
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            }}>
               {profile.name || '...'}
             </div>
             <div style={{ fontSize: '11px', color: 'var(--cyan)', fontFamily: 'var(--font-mono)' }}>
@@ -158,7 +170,12 @@ export default function MobileNav() {
         </div>
 
         {/* NAV */}
-        <div style={{ fontSize: '10px', color: 'var(--dim)', letterSpacing: '1.5px', padding: '0 8px', marginBottom: '6px' }}>NAVEGACIÓN</div>
+        <div style={{
+          fontSize: '10px', color: 'var(--dim)',
+          letterSpacing: '1.5px', padding: '0 8px', marginBottom: '6px',
+        }}>
+          NAVEGACIÓN
+        </div>
         <nav style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginBottom: '20px' }}>
           {navLinks.map(({ href, icon: Icon, label }) => {
             const active = pathname === href
@@ -182,7 +199,12 @@ export default function MobileNav() {
         {/* PROYECTOS */}
         {projects.length > 0 && (
           <>
-            <div style={{ fontSize: '10px', color: 'var(--dim)', letterSpacing: '1.5px', padding: '0 8px', marginBottom: '6px' }}>PROYECTOS</div>
+            <div style={{
+              fontSize: '10px', color: 'var(--dim)',
+              letterSpacing: '1.5px', padding: '0 8px', marginBottom: '6px',
+            }}>
+              PROYECTOS
+            </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginBottom: '20px' }}>
               {projects.map(p => (
                 <Link key={p.id} href={`/goals/${p.id}`} onClick={() => setOpen(false)} style={{
@@ -191,8 +213,14 @@ export default function MobileNav() {
                   color: 'var(--muted)', fontSize: '13px',
                   transition: 'all var(--transition)', textDecoration: 'none',
                 }}>
-                  <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: p.color, flexShrink: 0, boxShadow: `0 0 6px ${p.color}88` }} />
-                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.title}</span>
+                  <span style={{
+                    width: '7px', height: '7px', borderRadius: '50%',
+                    background: p.color, flexShrink: 0,
+                    boxShadow: `0 0 6px ${p.color}88`,
+                  }} />
+                  <span style={{
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                  }}>{p.title}</span>
                 </Link>
               ))}
             </div>
@@ -208,7 +236,9 @@ export default function MobileNav() {
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
             <span style={{ fontSize: '12px', fontWeight: 500 }}>{levelInfo.title}</span>
-            <span style={{ fontSize: '11px', fontFamily: 'var(--font-mono)', color: 'var(--muted)' }}>Nv.{levelInfo.level}</span>
+            <span style={{ fontSize: '11px', fontFamily: 'var(--font-mono)', color: 'var(--muted)' }}>
+              Nv.{levelInfo.level}
+            </span>
           </div>
           <div style={{ height: '4px', background: 'var(--border)', borderRadius: '4px', overflow: 'hidden' }}>
             <div style={{
@@ -217,21 +247,27 @@ export default function MobileNav() {
               borderRadius: '4px',
             }} />
           </div>
-          <div style={{ fontSize: '10px', color: 'var(--muted)', marginTop: '4px', textAlign: 'right', fontFamily: 'var(--font-mono)' }}>
+          <div style={{
+            fontSize: '10px', color: 'var(--muted)',
+            marginTop: '4px', textAlign: 'right',
+            fontFamily: 'var(--font-mono)',
+          }}>
             {levelInfo.xpInLevel}/{levelInfo.xpForNext} XP
           </div>
         </div>
 
-        {/* AJUSTES + LOGOUT */}
+        {/* AJUSTES */}
         <Link href="/settings" onClick={() => setOpen(false)} style={{
           display: 'flex', alignItems: 'center', gap: '10px',
           padding: '10px 12px', borderRadius: 'var(--radius-sm)',
           color: 'var(--muted)', fontSize: '13px', marginBottom: '6px',
           transition: 'all var(--transition)', textDecoration: 'none',
         }}>
-          <Settings size={16} /> Ajustes
+          <Settings size={16} />
+          Ajustes
         </Link>
 
+        {/* LOGOUT */}
         <button onClick={handleLogout} style={{
           display: 'flex', alignItems: 'center', gap: '10px',
           padding: '10px 12px', borderRadius: 'var(--radius-sm)',
@@ -239,7 +275,8 @@ export default function MobileNav() {
           color: 'var(--muted)', fontSize: '13px', cursor: 'pointer',
           width: '100%', transition: 'all var(--transition)',
         }}>
-          <LogOut size={16} /> Cerrar sesión
+          <LogOut size={16} />
+          Cerrar sesión
         </button>
       </div>
     </>

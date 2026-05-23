@@ -6,15 +6,13 @@ import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { useXPStore } from '@/store/xpStore'
 import { getUserXP } from '@/lib/gamification'
-import {
-  LayoutDashboard, Target, Repeat2, BarChart2,
-  Trophy, Settings, LogOut, Hexagon
-} from 'lucide-react'
+import { LayoutDashboard, Target, Repeat2, BarChart2, Trophy, Globe, Settings, LogOut, Hexagon } from 'lucide-react'
 
 const navLinks = [
   { href: '/dashboard',    icon: LayoutDashboard, label: 'Dashboard' },
   { href: '/goals',        icon: Target,          label: 'Metas' },
   { href: '/habits',       icon: Repeat2,         label: 'Hábitos' },
+  { href: '/world',        icon: Globe,           label: 'Mundo' },
   { href: '/reports',      icon: BarChart2,       label: 'Reportes' },
   { href: '/achievements', icon: Trophy,          label: 'Logros' },
 ]

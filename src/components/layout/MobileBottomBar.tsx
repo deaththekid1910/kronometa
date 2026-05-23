@@ -2,13 +2,13 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Target, Repeat2, BarChart2, Trophy } from 'lucide-react'
+import { LayoutDashboard, Target, Repeat2, Globe, Trophy } from 'lucide-react'
 
 const links = [
   { href: '/dashboard',    icon: LayoutDashboard, label: 'Inicio' },
   { href: '/goals',        icon: Target,          label: 'Metas' },
+  { href: '/world',        icon: Globe,           label: 'Mundo' },
   { href: '/habits',       icon: Repeat2,         label: 'Hábitos' },
-  { href: '/reports',      icon: BarChart2,       label: 'Reportes' },
   { href: '/achievements', icon: Trophy,          label: 'Logros' },
 ]
 

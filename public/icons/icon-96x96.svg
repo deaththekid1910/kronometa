@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96">
+  <rect width="96" height="96" rx="15.36" fill="#0A0E1A"/>
+  <rect width="96" height="96" rx="15.36" fill="url(#bg)"/>
+  <defs>
+    <radialGradient id="bg" cx="30%" cy="30%">
+      <stop offset="0%" stop-color="#00F5FF" stop-opacity="0.2"/>
+      <stop offset="100%" stop-color="#0A0E1A" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <polygon
+    points="48,14.399999999999999 63.36,24 63.36,43.2 48,52.800000000000004 32.64,43.2 32.64,24"
+    fill="none" stroke="#00F5FF" stroke-width="2.4000000000000004"
+    opacity="0.9"
+  />
+  <text x="48" y="42.24" text-anchor="middle"
+    font-size="17.28" font-family="Arial" font-weight="700"
+    fill="#00F5FF">★</text>
+  <text x="48" y="69.12" text-anchor="middle"
+    font-size="13.440000000000001" font-family="Arial" font-weight="700"
+    fill="#F1F5F9" letter-spacing="-1">KM</text>
+  <rect x="21.12" y="76.80000000000001" width="53.760000000000005" height="3.3600000000000003" rx="1.7279999999999998" fill="#1F2937"/>
+  <rect x="21.12" y="76.80000000000001" width="33.599999999999994" height="3.3600000000000003" rx="1.7279999999999998" fill="#00F5FF" opacity="0.9"/>
+  <circle cx="54.72" cy="78.43199999999999" r="2.688" fill="#00F5FF"/>
+</svg>

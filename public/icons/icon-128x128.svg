@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <rect width="128" height="128" rx="20.48" fill="#0A0E1A"/>
+  <rect width="128" height="128" rx="20.48" fill="url(#bg)"/>
+  <defs>
+    <radialGradient id="bg" cx="30%" cy="30%">
+      <stop offset="0%" stop-color="#00F5FF" stop-opacity="0.2"/>
+      <stop offset="100%" stop-color="#0A0E1A" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <polygon
+    points="64,19.2 84.48,32 84.48,57.6 64,70.4 43.52,57.6 43.52,32"
+    fill="none" stroke="#00F5FF" stroke-width="3.2"
+    opacity="0.9"
+  />
+  <text x="64" y="56.32" text-anchor="middle"
+    font-size="23.04" font-family="Arial" font-weight="700"
+    fill="#00F5FF">★</text>
+  <text x="64" y="92.16" text-anchor="middle"
+    font-size="17.92" font-family="Arial" font-weight="700"
+    fill="#F1F5F9" letter-spacing="-1">KM</text>
+  <rect x="28.16" y="102.4" width="71.68" height="4.48" rx="2.304" fill="#1F2937"/>
+  <rect x="28.16" y="102.4" width="44.8" height="4.48" rx="2.304" fill="#00F5FF" opacity="0.9"/>
+  <circle cx="72.96" cy="104.576" r="3.584" fill="#00F5FF"/>
+</svg>

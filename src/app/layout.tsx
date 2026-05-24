@@ -7,18 +7,13 @@ import '@fontsource/jetbrains-mono/500.css'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'KronoMeta — Gestiona tus metas con gamificación',
-  description: 'Gestiona metas, hábitos y tiempo con cronómetros persistentes, avatar de progreso y reportes animados.',
+  title: 'KronoMeta',
+  description: 'Gestiona metas, hábitos y tiempo con cronómetros persistentes y gamificación.',
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
     title: 'KronoMeta',
-  },
-  other: {
-    'mobile-web-app-capable': 'yes',
-    'msapplication-TileColor': '#0A0E1A',
-    'msapplication-tap-highlight': 'no',
   },
 }
 
@@ -34,9 +29,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="es">
       <head>
-        <link rel="apple-touch-icon" href="/icons/apple-icon-180.png" />
+        <link rel="apple-touch-icon" href="/icons/apple-icon-180.svg" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="format-detection" content="telephone=no" />
       </head>
       <body style={{ margin: 0, padding: 0 }}>{children}</body>
     </html>

@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="80" fill="#0A0E1A"/>
+  <rect width="512" height="512" rx="80" fill="url(#bg)"/>
+  <defs>
+    <radialGradient id="bg" cx="30%" cy="30%">
+      <stop offset="0%" stop-color="#00F5FF" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#0A0E1A" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <!-- Hexágono -->
+  <polygon points="256,80 340,128 340,224 256,272 172,224 172,128"
+    fill="none" stroke="#00F5FF" stroke-width="8" filter="url(#glow)" opacity="0.9"/>
+  <!-- Estrella / Avatar -->
+  <text x="256" y="210" text-anchor="middle" font-size="100"
+    font-family="Arial" fill="#00F5FF" filter="url(#glow)">★</text>
+  <!-- Texto KM -->
+  <text x="256" y="340" text-anchor="middle" font-size="64"
+    font-family="Arial" font-weight="700" fill="#F1F5F9" letter-spacing="-2">KM</text>
+  <!-- Barra de progreso decorativa -->
+  <rect x="120" y="380" width="272" height="8" rx="4" fill="#1F2937"/>
+  <rect x="120" y="380" width="180" height="8" rx="4" fill="#00F5FF" opacity="0.9" filter="url(#glow)"/>
+  <!-- Punto avatar en progreso -->
+  <circle cx="300" cy="384" r="10" fill="#00F5FF" filter="url(#glow)"/>
+</svg>

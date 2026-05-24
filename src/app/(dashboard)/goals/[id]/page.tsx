@@ -11,23 +11,20 @@ import TimerWidget from '@/components/timer/TimerWidget'
 import Badge from '@/components/ui/Badge'
 import Button from '@/components/ui/Button'
 import { getTotalSeconds, formatTime } from '@/lib/timer'
-import {
-  ArrowLeft, Plus, Target, Calendar,
-  Clock, CheckCircle2, Circle
-} from 'lucide-react'
+import { ArrowLeft, Plus, Target, Calendar, Clock, CheckCircle2, Circle, Trash2 } from 'lucide-react'
 
 export default function GoalDetailPage() {
   const { id }   = useParams<{ id: string }>()
   const router   = useRouter()
-  const [goal, setGoal]           = useState<GoalWithStats | null>(null)
-  const [subGoals, setSubGoals]   = useState<SubGoal[]>([])
+  const [goal,      setGoal]      = useState<GoalWithStats | null>(null)
+  const [subGoals,  setSubGoals]  = useState<SubGoal[]>([])
   const [totalSecs, setTotalSecs] = useState(0)
-  const [loading, setLoading]     = useState(true)
+  const [loading,   setLoading]   = useState(true)
   const [showModal, setShowModal] = useState(false)
+  const [confirmDel,setConfirmDel]= useState(false)
+  const [deleting,  setDeleting]  = useState(false)
 
-  useEffect(() => {
-    loadGoal()
-  }, [id])
+  useEffect(() => { loadGoal() }, [id])
 
   async function loadGoal() {
     const supabase = createClient()
@@ -51,16 +48,26 @@ export default function GoalDetailPage() {
 
   function handleComplete(subGoalId: string) {
     setSubGoals(prev =>
-      prev.map(sg =>
-        sg.id === subGoalId
-          ? { ...sg, completed_at: new Date().toISOString() }
-          : sg
-      )
+      prev.map(sg => sg.id === subGoalId ? { ...sg, completed_at: new Date().toISOString() } : sg)
+    )
+  }
+
+  function handleUncomplete(subGoalId: string) {
+    setSubGoals(prev =>
+      prev.map(sg => sg.id === subGoalId ? { ...sg, completed_at: undefined } : sg)
     )
   }
 
   function handleAddSubGoal(subGoal: SubGoal) {
     setSubGoals(prev => [...prev, subGoal])
+  }
+
+  async function handleDelete() {
+    setDeleting(true)
+    const supabase = createClient()
+    await supabase.from('goals').update({ archived: true }).eq('id', id)
+    router.push('/goals')
+    router.refresh()
   }
 
   if (loading) return (
@@ -92,13 +99,13 @@ export default function GoalDetailPage() {
   return (
     <div style={{ maxWidth: '780px', margin: '0 auto', padding: '24px 20px' }}>
 
+      {/* HEADER */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
         <button onClick={() => router.back()} style={{
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           width: '34px', height: '34px', borderRadius: 'var(--radius-sm)',
           background: 'var(--surface)', border: '1px solid var(--border)',
-          color: 'var(--muted)', cursor: 'pointer', transition: 'all var(--transition)',
-          flexShrink: 0,
+          color: 'var(--muted)', cursor: 'pointer', flexShrink: 0,
         }}>
           <ArrowLeft size={16} />
         </button>
@@ -115,13 +122,59 @@ export default function GoalDetailPage() {
           )}
         </div>
         <TimerWidget goalId={goal.id} color={accent} />
+
+        {/* BOTÓN ELIMINAR */}
+        <button
+          onClick={() => setConfirmDel(true)}
+          title="Eliminar meta"
+          style={{
+            width: '34px', height: '34px', borderRadius: 'var(--radius-sm)',
+            background: '#FF386010', border: '1px solid #FF386030',
+            color: 'var(--red)', cursor: 'pointer', flexShrink: 0,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            transition: 'all var(--transition)',
+          }}
+          onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.background = '#FF386025'}
+          onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.background = '#FF386010'}
+        >
+          <Trash2 size={15} />
+        </button>
       </div>
 
+      {/* CONFIRM ELIMINAR */}
+      {confirmDel && (
+        <div style={{
+          background: '#FF386010', border: '1px solid #FF386033',
+          borderRadius: 'var(--radius-md)', padding: '14px 16px',
+          marginBottom: '20px', display: 'flex', alignItems: 'center',
+          gap: '12px', flexWrap: 'wrap',
+        }}>
+          <span style={{ fontSize: '13px', color: 'var(--text)', flex: 1 }}>
+            ¿Eliminar <strong>{goal.title}</strong> y todas sus submetas?
+          </span>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button onClick={() => setConfirmDel(false)} style={{
+              padding: '6px 14px', borderRadius: 'var(--radius-sm)',
+              background: 'transparent', border: '1px solid var(--border)',
+              color: 'var(--muted)', fontSize: '12px', cursor: 'pointer',
+            }}>Cancelar</button>
+            <button onClick={handleDelete} disabled={deleting} style={{
+              padding: '6px 14px', borderRadius: 'var(--radius-sm)',
+              background: 'var(--red)', border: 'none',
+              color: '#fff', fontSize: '12px', cursor: 'pointer', fontWeight: 600,
+            }}>
+              {deleting ? 'Eliminando...' : 'Sí, eliminar'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* STATS */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '10px', marginBottom: '24px' }}>
         {[
           { icon: <CheckCircle2 size={14} />, label: 'Completadas', value: `${completed}/${total}`, color: 'var(--green)' },
-          { icon: <Clock size={14} />,        label: 'Tiempo total', value: formatTime(totalSecs), color: 'var(--amber)', mono: true },
-          { icon: <Target size={14} />,       label: 'Progreso',    value: `${progress}%`,         color: accent },
+          { icon: <Clock size={14} />,        label: 'Tiempo total', value: formatTime(totalSecs),  color: 'var(--amber)', mono: true },
+          { icon: <Target size={14} />,       label: 'Progreso',    value: `${progress}%`,          color: accent },
           ...(goal.deadline ? [{
             icon: <Calendar size={14} />,
             label: 'Vence',
@@ -139,7 +192,7 @@ export default function GoalDetailPage() {
             </div>
             <div style={{
               fontSize: '18px', fontWeight: 600, color: s.color,
-              fontFamily: s.mono ? 'var(--font-mono)' : 'var(--font-sans)',
+              fontFamily: (s as any).mono ? 'var(--font-mono)' : 'var(--font-sans)',
             }}>
               {s.value}
             </div>
@@ -147,6 +200,7 @@ export default function GoalDetailPage() {
         ))}
       </div>
 
+      {/* AVATAR TRACK */}
       {goal.type === 'goal' && (
         <div style={{
           background: 'var(--surface)', border: '1px solid var(--border)',
@@ -167,6 +221,7 @@ export default function GoalDetailPage() {
         </div>
       )}
 
+      {/* SUBMETAS */}
       <div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -174,12 +229,7 @@ export default function GoalDetailPage() {
             <Badge color="gray">{total} en total</Badge>
           </div>
           {goal.type === 'goal' && (
-            <Button
-              variant="secondary"
-              size="sm"
-              icon={<Plus size={13} />}
-              onClick={() => setShowModal(true)}
-            >
+            <Button variant="secondary" size="sm" icon={<Plus size={13} />} onClick={() => setShowModal(true)}>
               Agregar
             </Button>
           )}
@@ -192,9 +242,7 @@ export default function GoalDetailPage() {
             borderRadius: 'var(--radius-lg)',
           }}>
             <Circle size={32} color={accent} style={{ opacity: 0.4, marginBottom: '12px' }} />
-            <p style={{ color: 'var(--muted)', fontSize: '14px', marginBottom: '12px' }}>
-              Sin submetas aún
-            </p>
+            <p style={{ color: 'var(--muted)', fontSize: '14px', marginBottom: '12px' }}>Sin submetas aún</p>
             <Button variant="secondary" size="sm" icon={<Plus size={13} />} onClick={() => setShowModal(true)}
               style={{ background: `${accent}12`, color: accent, borderColor: `${accent}30` }}>
               Agregar primera submeta
@@ -209,6 +257,7 @@ export default function GoalDetailPage() {
                 index={i}
                 color={accent}
                 onComplete={handleComplete}
+                onUncomplete={handleUncomplete}
               />
             ))}
           </div>

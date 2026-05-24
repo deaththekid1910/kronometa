@@ -1,7 +1,17 @@
-import type { NextConfig } from "next";
+import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
-  /* config options here */
-};
+  reactStrictMode: true,
+  compress: true,
+  poweredByHeader: false,
 
-export default nextConfig;
+  experimental: {
+    optimizePackageImports: ['lucide-react', 'recharts'],
+  },
+
+  images: {
+    formats: ['image/avif', 'image/webp'],
+  },
+}
+
+export default nextConfig

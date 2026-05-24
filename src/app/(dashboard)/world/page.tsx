@@ -18,35 +18,44 @@ export default function WorldPage() {
   useEffect(() => { loadData() }, [])
 
   async function loadData() {
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return
 
-    const { data } = await supabase
-      .from('goals')
-      .select('*, sub_goals(*), avatar_state(*)')
-      .eq('user_id', user.id)
-      .eq('type', 'goal')
-      .eq('archived', false)
-      .order('created_at', { ascending: false })
+  const { data } = await supabase
+    .from('goals')
+    .select('*, sub_goals(*), avatar_state(*)')
+    .eq('user_id', user.id)
+    .eq('type', 'goal')
+    .eq('archived', false)
+    .order('created_at', { ascending: false })
 
-    if (data) {
-      const goals = data.map(g => ({
-        ...g,
-        sub_goals:    (g.sub_goals || []).sort((a: SubGoal, b: SubGoal) => a.order_index - b.order_index),
-        avatar_state: g.avatar_state?.[0],
-      }))
-      setGoals(goals)
+  if (data) {
+    const goals = data.map(g => ({
+      ...g,
+      sub_goals:    (g.sub_goals || []).sort((a: SubGoal, b: SubGoal) => a.order_index - b.order_index),
+      avatar_state: g.avatar_state?.[0],
+    }))
+    setGoals(goals)
 
-      const secsMap: Record<string, number> = {}
-      for (const g of goals) {
-        secsMap[g.id] = await getTotalSeconds(g.id)
+    // Todas las queries de tiempo EN PARALELO
+    const { data: allSessions } = await supabase
+      .from('timer_sessions')
+      .select('goal_id, elapsed_seconds, started_at, is_active')
+      .in('goal_id', goals.map(g => g.id))
+
+    const secsMap: Record<string, number> = {}
+    for (const s of allSessions || []) {
+      let secs = s.elapsed_seconds || 0
+      if (s.is_active && s.started_at) {
+        secs += Math.floor((Date.now() - new Date(s.started_at).getTime()) / 1000)
       }
-      setTotalSecs(secsMap)
+      secsMap[s.goal_id] = (secsMap[s.goal_id] || 0) + secs
     }
-    setLoading(false)
+    setTotalSecs(secsMap)
   }
-
+  setLoading(false)
+}
   return (
     <div style={{ padding: isMobile ? '12px' : '24px 20px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: isMobile ? '16px' : '24px' }}>

@@ -6,6 +6,7 @@ import '@fontsource/jetbrains-mono/400.css'
 import '@fontsource/jetbrains-mono/500.css'
 import './globals.css'
 import ServiceWorkerRegister from '@/components/ServiceWorkerRegister'
+import PWAInstallButton from '@/components/PWAInstallButton'
 
 export const metadata: Metadata = {
   title: 'KronoMeta',
@@ -37,6 +38,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body style={{ margin: 0, padding: 0 }}>
         <ServiceWorkerRegister />
+        <PWAInstallButton />
         {children}
       </body>
     </html>

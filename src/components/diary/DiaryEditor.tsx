@@ -279,10 +279,10 @@ export default function DiaryEditor({ entry, date, timezone, userId, onSave, onC
         <div style={{ flex: 1, minHeight: '400px' }}>
           {editor && (
             <>
-              <BubbleMenuBar editor={editor} />
-              <FloatingMenuBar editor={editor} onImageClick={() => fileRef.current?.click()} />
+                <BubbleMenuBar editor={editor} />
+                <FloatingMenuBar editor={editor} onImageClick={() => fileRef.current?.click()} />
             </>
-          )}
+            )}
           <EditorContent editor={editor} style={{ minHeight: '400px' }} />
         </div>
 

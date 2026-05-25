@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase'
 import { useXPStore } from '@/store/xpStore'
 import { getUserXP } from '@/lib/gamification'
 import NotificationBell from '@/components/notifications/NotificationBell'
-import { LayoutDashboard, Target, Repeat2, BarChart2, Trophy, Globe, Settings, LogOut, Hexagon, X, Menu } from 'lucide-react'
+import { LayoutDashboard, Target, Repeat2, BarChart2, Trophy, Globe, BookOpen, Settings, LogOut, Hexagon, X, Menu } from 'lucide-react'
 
 const navLinks = [
   { href: '/dashboard',    icon: LayoutDashboard, label: 'Dashboard' },
@@ -16,6 +16,7 @@ const navLinks = [
   { href: '/world',        icon: Globe,           label: 'Mundo' },
   { href: '/reports',      icon: BarChart2,       label: 'Reportes' },
   { href: '/achievements', icon: Trophy,          label: 'Logros' },
+  { href: '/diary',        icon: BookOpen,        label: 'Diario' },
 ]
 
 interface Project { id: string; title: string; color: string }

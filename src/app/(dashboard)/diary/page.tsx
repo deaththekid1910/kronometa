@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase'
 import { useBreakpoint } from '@/hooks/useBreakpoint'
 import { DiaryEntry } from '@/lib/diary'
 import DiaryLock from '@/components/diary/DiaryLock'
-import DiaryEditor from '@/components/diary/DiaryEditor'
+import DiaryEditor from '@/components/diary/DiaryEditorWrapper'
 import DiaryEntryCard from '@/components/diary/DiaryEntryCard'
 import { BookOpen, Plus, Lock, Search } from 'lucide-react'
 

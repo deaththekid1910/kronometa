@@ -1,10 +1,21 @@
 'use client'
 
-import { useState, useRef } from 'react'
-import { Block, BlockType, DiaryEntry, MOODS, generateId } from '@/lib/diary'
-import DiaryToolbar from './DiaryToolbar'
+import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEditor, EditorContent } from '@tiptap/react'
+import StarterKit from '@tiptap/starter-kit'
+import ImageExt from '@tiptap/extension-image'
+import Placeholder from '@tiptap/extension-placeholder'
+import TextAlign from '@tiptap/extension-text-align'
+import Highlight from '@tiptap/extension-highlight'
+import Typography from '@tiptap/extension-typography'
+import TaskList from '@tiptap/extension-task-list'
+import TaskItem from '@tiptap/extension-task-item'
+import CharacterCount from '@tiptap/extension-character-count'
+import { DiaryEntry, MOODS } from '@/lib/diary'
 import { createClient } from '@/lib/supabase'
-import { Save, Trash2, GripVertical, X, Plus } from 'lucide-react'
+import BubbleMenuBar from './BubbleMenuBar'
+import FloatingMenuBar from './FloatingMenuBar'
+import { Save, X, FileImage } from 'lucide-react'
 
 interface Props {
   entry?: DiaryEntry
@@ -16,352 +27,298 @@ interface Props {
 }
 
 export default function DiaryEditor({ entry, date, timezone, userId, onSave, onCancel }: Props) {
-  const [title,   setTitle]   = useState(entry?.title || '')
-  const [blocks,  setBlocks]  = useState<Block[]>(entry?.content || [{ id: generateId(), type: 'paragraph', content: '' }])
-  const [mood,    setMood]    = useState(entry?.mood || 'neutral')
-  const [loading, setLoading] = useState(false)
+  const [title,        setTitle]        = useState(entry?.title || '')
+  const [mood,         setMood]         = useState(entry?.mood || 'neutral')
+  const [loading,      setLoading]      = useState(false)
+  const [uploading,    setUploading]    = useState(false)
+  const [autoSaved,    setAutoSaved]    = useState(false)
+  const fileRef                         = useRef<HTMLInputElement>(null)
+  const autoSaveTimer                   = useRef<ReturnType<typeof setTimeout>>()
 
-  function addBlock(block: Block) {
-    setBlocks(prev => [...prev, block])
+  const editor = useEditor({
+    extensions: [
+      StarterKit,
+      ImageExt.configure({ inline: false, allowBase64: true }),
+      Placeholder.configure({ placeholder: 'Escribe aquí... (clic derecho o nueva línea para opciones)' }),
+      TextAlign.configure({ types: ['heading', 'paragraph'] }),
+      Highlight.configure({ multicolor: true }),
+      Typography,
+      TaskList,
+      TaskItem.configure({ nested: true }),
+      CharacterCount,
+    ],
+    content: entry?.content || '',
+    editorProps: {
+      attributes: {
+        style: [
+          'outline: none',
+          'min-height: 100%',
+          'padding: 0',
+          'font-family: Inter, sans-serif',
+          'font-size: 15px',
+          'line-height: 1.8',
+          'color: #CBD5E1',
+        ].join(';'),
+      },
+    },
+    onUpdate: () => {
+      // Auto-guardado cada 3 segundos
+      clearTimeout(autoSaveTimer.current)
+      autoSaveTimer.current = setTimeout(() => {
+        handleAutoSave()
+      }, 3000)
+    },
+  })
+
+  async function handleAutoSave() {
+    if (!editor || !title.trim() || !entry) return
+    const supabase = createClient()
+    await supabase
+      .from('diary_entries')
+      .update({ content: editor.getHTML(), updated_at: new Date().toISOString() })
+      .eq('id', entry.id)
+    setAutoSaved(true)
+    setTimeout(() => setAutoSaved(false), 2000)
   }
 
-  function updateBlock(id: string, updates: Partial<Block>) {
-    setBlocks(prev => prev.map(b => b.id === id ? { ...b, ...updates } : b))
-  }
+  async function handleImageUpload(file: File) {
+    if (!file || !editor) return
+    setUploading(true)
 
-  function removeBlock(id: string) {
-    setBlocks(prev => prev.filter(b => b.id !== id))
-  }
+    // Si es móvil o archivo pequeño, usa base64 directo
+    if (file.size < 2 * 1024 * 1024) {
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        const src = e.target?.result as string
+        editor.chain().focus().setImage({ src }).run()
+        setUploading(false)
+      }
+      reader.readAsDataURL(file)
+      return
+    }
 
-  function updateListItem(blockId: string, idx: number, value: string) {
-    setBlocks(prev => prev.map(b => {
-      if (b.id !== blockId) return b
-      const items = [...(b.items || [])]
-      items[idx] = value
-      return { ...b, items }
-    }))
-  }
+    // Para archivos más grandes, sube a Supabase Storage
+    try {
+      const supabase   = createClient()
+      const ext        = file.name.split('.').pop()
+      const filename   = `${userId}/${Date.now()}.${ext}`
+      const { data, error } = await supabase.storage
+        .from('diary-images')
+        .upload(filename, file, { cacheControl: '3600', upsert: false })
 
-  function addListItem(blockId: string) {
-    setBlocks(prev => prev.map(b => {
-      if (b.id !== blockId) return b
-      return { ...b, items: [...(b.items || []), ''] }
-    }))
-  }
+      if (error) throw error
 
-  function removeListItem(blockId: string, idx: number) {
-    setBlocks(prev => prev.map(b => {
-      if (b.id !== blockId) return b
-      const items = (b.items || []).filter((_, i) => i !== idx)
-      return { ...b, items: items.length ? items : [''] }
-    }))
+      const { data: url } = supabase.storage
+        .from('diary-images')
+        .getPublicUrl(filename)
+
+      editor.chain().focus().setImage({ src: url.publicUrl }).run()
+    } catch (err) {
+      console.error('Error subiendo imagen:', err)
+      // Fallback a base64
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        editor.chain().focus().setImage({ src: e.target?.result as string }).run()
+      }
+      reader.readAsDataURL(file)
+    }
+    setUploading(false)
   }
 
   async function handleSave() {
-    if (!title.trim()) return
+    if (!editor || !title.trim()) return
     setLoading(true)
     const supabase = createClient()
-
-    const payload = {
+    const payload  = {
       user_id:  userId,
       title:    title.trim(),
-      content:  blocks,
+      content:  editor.getHTML(),
       mood,
       date,
       timezone,
     }
 
     let saved: DiaryEntry | null = null
-
     if (entry) {
       const { data } = await supabase
         .from('diary_entries')
         .update({ ...payload, updated_at: new Date().toISOString() })
-        .eq('id', entry.id)
-        .select().single()
+        .eq('id', entry.id).select().single()
       saved = data
     } else {
       const { data } = await supabase
         .from('diary_entries')
-        .insert(payload)
-        .select().single()
+        .insert(payload).select().single()
       saved = data
     }
-
     if (saved) onSave(saved)
     setLoading(false)
   }
 
-  const inputBase: React.CSSProperties = {
-    width: '100%', background: 'transparent',
-    border: 'none', outline: 'none',
-    color: '#F1F5F9', fontFamily: 'Inter, sans-serif',
-    resize: 'none', boxSizing: 'border-box',
-  }
-
-  function renderBlock(block: Block) {
-    switch (block.type) {
-
-      case 'paragraph':
-        return (
-          <textarea
-            value={block.content}
-            onChange={e => updateBlock(block.id, { content: e.target.value })}
-            placeholder="Escribe algo..."
-            rows={3}
-            style={{ ...inputBase, fontSize: '14px', lineHeight: 1.7, color: '#CBD5E1' }}
-          />
-        )
-
-      case 'heading':
-        return (
-          <input
-            value={block.content}
-            onChange={e => updateBlock(block.id, { content: e.target.value })}
-            placeholder={block.level === 1 ? 'Título principal' : 'Subtítulo'}
-            style={{
-              ...inputBase,
-              fontSize: block.level === 1 ? '22px' : '17px',
-              fontWeight: 700,
-              color: '#F1F5F9',
-              letterSpacing: '-0.5px',
-            }}
-          />
-        )
-
-      case 'quote':
-        return (
-          <div style={{ display: 'flex', gap: '12px' }}>
-            <div style={{ width: '3px', background: '#B026FF', borderRadius: '3px', flexShrink: 0 }} />
-            <textarea
-              value={block.content}
-              onChange={e => updateBlock(block.id, { content: e.target.value })}
-              placeholder="Escribe una cita o pensamiento..."
-              rows={2}
-              style={{
-                ...inputBase, fontSize: '15px',
-                fontStyle: 'italic', color: '#B026FF',
-                lineHeight: 1.6,
-              }}
-            />
-          </div>
-        )
-
-      case 'list':
-        return (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            {(block.items || ['']).map((item, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#00F5FF', flexShrink: 0 }} />
-                <input
-                  value={item}
-                  onChange={e => updateListItem(block.id, i, e.target.value)}
-                  onKeyDown={e => {
-                    if (e.key === 'Enter') { e.preventDefault(); addListItem(block.id) }
-                    if (e.key === 'Backspace' && !item && i > 0) removeListItem(block.id, i)
-                  }}
-                  placeholder={`Elemento ${i + 1}`}
-                  style={{ ...inputBase, fontSize: '14px', color: '#CBD5E1', flex: 1 }}
-                />
-                <button onClick={() => removeListItem(block.id, i)} style={{ background: 'none', border: 'none', color: '#374151', cursor: 'pointer', display: 'flex', padding: '2px' }}>
-                  <X size={12} />
-                </button>
-              </div>
-            ))}
-            <button onClick={() => addListItem(block.id)} style={{
-              display: 'flex', alignItems: 'center', gap: '6px',
-              background: 'none', border: 'none', color: '#374151',
-              cursor: 'pointer', fontSize: '12px', width: 'fit-content',
-              fontFamily: 'Inter, sans-serif',
-            }}>
-              <Plus size={12} /> Agregar elemento
-            </button>
-          </div>
-        )
-
-      case 'checklist':
-        return (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            {(block.items || ['']).map((item, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <input
-                  type="checkbox"
-                  style={{ accentColor: '#00F5FF', width: '16px', height: '16px', flexShrink: 0, cursor: 'pointer' }}
-                />
-                <input
-                  value={item}
-                  onChange={e => updateListItem(block.id, i, e.target.value)}
-                  onKeyDown={e => {
-                    if (e.key === 'Enter') { e.preventDefault(); addListItem(block.id) }
-                    if (e.key === 'Backspace' && !item && i > 0) removeListItem(block.id, i)
-                  }}
-                  placeholder={`Tarea ${i + 1}`}
-                  style={{ ...inputBase, fontSize: '14px', color: '#CBD5E1', flex: 1 }}
-                />
-                <button onClick={() => removeListItem(block.id, i)} style={{ background: 'none', border: 'none', color: '#374151', cursor: 'pointer', display: 'flex', padding: '2px' }}>
-                  <X size={12} />
-                </button>
-              </div>
-            ))}
-            <button onClick={() => addListItem(block.id)} style={{
-              display: 'flex', alignItems: 'center', gap: '6px',
-              background: 'none', border: 'none', color: '#374151',
-              cursor: 'pointer', fontSize: '12px', width: 'fit-content',
-              fontFamily: 'Inter, sans-serif',
-            }}>
-              <Plus size={12} /> Agregar tarea
-            </button>
-          </div>
-        )
-
-      case 'image':
-        return (
-          <div>
-            <input
-              value={block.content}
-              onChange={e => updateBlock(block.id, { content: e.target.value })}
-              placeholder="Pega la URL de una imagen..."
-              style={{ ...inputBase, fontSize: '13px', color: '#64748B', marginBottom: block.content ? '10px' : '0' }}
-            />
-            {block.content && (
-              <img
-                src={block.content}
-                alt="Imagen del diario"
-                style={{
-                  width: '100%', maxHeight: '300px',
-                  objectFit: 'cover', borderRadius: '10px',
-                  border: '1px solid #1F2937',
-                }}
-                onError={e => (e.currentTarget as HTMLImageElement).style.display = 'none'}
-              />
-            )}
-          </div>
-        )
-
-      case 'divider':
-        return (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '4px 0' }}>
-            <div style={{ flex: 1, height: '1px', background: 'linear-gradient(90deg, transparent, #1F2937, transparent)' }} />
-            <span style={{ fontSize: '12px', color: '#374151' }}>✦</span>
-            <div style={{ flex: 1, height: '1px', background: 'linear-gradient(90deg, #1F2937, transparent)' }} />
-          </div>
-        )
-
-      default:
-        return null
-    }
-  }
+  const currentMood = MOODS.find(m => m.key === mood) || MOODS[2]
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+    <div style={{
+      display: 'flex', flexDirection: 'column',
+      height: '100%', overflow: 'hidden',
+      fontFamily: 'Inter, sans-serif',
+    }}>
 
-      {/* TÍTULO */}
+      {/* INPUT DE IMAGEN OCULTO */}
       <input
-        value={title}
-        onChange={e => setTitle(e.target.value)}
-        placeholder="Título de la entrada..."
-        style={{
-          width: '100%', background: 'transparent', border: 'none',
-          outline: 'none', fontSize: '24px', fontWeight: 700,
-          color: '#F1F5F9', fontFamily: 'Inter, sans-serif',
-          letterSpacing: '-0.5px', boxSizing: 'border-box',
+        ref={fileRef}
+        type="file"
+        accept="image/*"
+        style={{ display: 'none' }}
+        onChange={e => {
+          const file = e.target.files?.[0]
+          if (file) handleImageUpload(file)
+          e.target.value = ''
         }}
       />
 
-      {/* MOOD */}
-      <div>
-        <div style={{ fontSize: '11px', color: '#64748B', letterSpacing: '1px', marginBottom: '8px' }}>¿CÓMO TE SIENTES HOY?</div>
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+      {/* TOPBAR DEL EDITOR */}
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '12px 20px', borderBottom: '1px solid #1F2937',
+        flexShrink: 0, flexWrap: 'wrap', gap: '10px',
+        background: '#0d1120',
+      }}>
+        {/* MOOD */}
+        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
           {MOODS.map(m => (
-            <button
-              key={m.key}
-              onClick={() => setMood(m.key)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: '6px',
-                padding: '6px 12px', borderRadius: '20px',
-                border: `1px solid ${mood === m.key ? m.color + '66' : '#1F2937'}`,
-                background: mood === m.key ? m.color + '15' : 'transparent',
-                color: mood === m.key ? m.color : '#64748B',
-                fontSize: '12px', cursor: 'pointer', fontFamily: 'Inter, sans-serif',
-                transition: 'all 0.15s',
-              }}
-            >
-              <span>{m.emoji}</span> {m.label}
+            <button key={m.key} onClick={() => setMood(m.key)} style={{
+              padding: '4px 10px', borderRadius: '20px',
+              border: `1px solid ${mood === m.key ? m.color + '66' : '#1F2937'}`,
+              background: mood === m.key ? m.color + '15' : 'transparent',
+              color: mood === m.key ? m.color : '#374151',
+              fontSize: '12px', cursor: 'pointer',
+              transition: 'all 0.15s',
+            }}>
+              {m.emoji}
+              <span className="mood-label"> {m.label}</span>
             </button>
           ))}
         </div>
-      </div>
 
-      <div style={{ height: '1px', background: '#1F2937' }} />
-
-      {/* TOOLBAR */}
-      <DiaryToolbar onAdd={addBlock} />
-
-      {/* BLOQUES */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', minHeight: '200px' }}>
-        {blocks.map((block, i) => (
-          <div
-            key={block.id}
-            style={{
-              display: 'flex', alignItems: 'flex-start', gap: '8px',
-              padding: '12px 14px',
-              background: '#0d1120', border: '1px solid #1F2937',
-              borderRadius: '10px', transition: 'border-color 0.15s',
-              position: 'relative',
-            }}
-            onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.borderColor = '#374151'}
-            onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.borderColor = '#1F2937'}
-          >
-            <div style={{ flex: 1, minWidth: 0 }}>
-              {renderBlock(block)}
-            </div>
-            {block.type !== 'divider' && (
-              <button
-                onClick={() => removeBlock(block.id)}
-                style={{
-                  background: 'none', border: 'none',
-                  color: '#374151', cursor: 'pointer',
-                  padding: '2px', display: 'flex', flexShrink: 0,
-                  transition: 'color 0.15s',
-                }}
-                onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.color = '#FF3860'}
-                onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.color = '#374151'}
-              >
-                <Trash2 size={13} />
-              </button>
-            )}
-          </div>
-        ))}
-      </div>
-
-      {/* ACCIONES */}
-      <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', paddingTop: '8px' }}>
-        <button onClick={onCancel} style={{
-          padding: '10px 20px', borderRadius: '8px',
-          background: 'transparent', border: '1px solid #1F2937',
-          color: '#64748B', fontSize: '13px', cursor: 'pointer',
-          fontFamily: 'Inter, sans-serif',
-        }}>
-          Cancelar
-        </button>
-        <button
-          onClick={handleSave}
-          disabled={loading || !title.trim()}
-          style={{
-            display: 'flex', alignItems: 'center', gap: '8px',
-            padding: '10px 20px', borderRadius: '8px',
+        {/* ACCIONES */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+          {autoSaved && (
+            <span style={{ fontSize: '11px', color: '#00FF88', fontFamily: 'var(--font-mono)' }}>✓ guardado</span>
+          )}
+          {uploading && (
+            <span style={{ fontSize: '11px', color: '#FFB800' }}>subiendo imagen...</span>
+          )}
+          <button onClick={() => fileRef.current?.click()} style={{
+            display: 'flex', alignItems: 'center', gap: '6px',
+            padding: '7px 12px', borderRadius: '8px',
+            background: '#B026FF15', border: '1px solid #B026FF33',
+            color: '#B026FF', fontSize: '12px', cursor: 'pointer',
+          }}>
+            <FileImage size={14} />
+            <span className="img-label">Imagen</span>
+          </button>
+          <button onClick={onCancel} style={{
+            width: '32px', height: '32px', borderRadius: '8px',
+            background: 'transparent', border: '1px solid #1F2937',
+            color: '#64748B', cursor: 'pointer', display: 'flex',
+            alignItems: 'center', justifyContent: 'center',
+          }}>
+            <X size={15} />
+          </button>
+          <button onClick={handleSave} disabled={loading || !title.trim()} style={{
+            display: 'flex', alignItems: 'center', gap: '6px',
+            padding: '7px 16px', borderRadius: '8px',
             background: '#00F5FF', border: 'none',
             color: '#0A0E1A', fontSize: '13px', fontWeight: 700,
-            cursor: loading ? 'not-allowed' : 'pointer',
-            fontFamily: 'Inter, sans-serif',
-            opacity: !title.trim() ? 0.5 : 1,
-            boxShadow: '0 0 16px #00F5FF44',
-          }}
-        >
-          <Save size={15} />
-          {loading ? 'Guardando...' : 'Guardar entrada'}
-        </button>
+            cursor: 'pointer', opacity: !title.trim() ? 0.5 : 1,
+            boxShadow: '0 0 12px #00F5FF44',
+          }}>
+            <Save size={14} />
+            {loading ? '...' : 'Guardar'}
+          </button>
+        </div>
       </div>
+
+      {/* ÁREA DE ESCRITURA — ocupa todo el espacio */}
+      <div style={{
+        flex: 1, overflowY: 'auto', padding: '24px 32px',
+        display: 'flex', flexDirection: 'column', gap: '16px',
+      }}>
+
+        {/* FECHA */}
+        <div style={{ fontSize: '12px', color: '#374151', textTransform: 'capitalize' }}>
+          {new Date(date + 'T12:00:00').toLocaleDateString('es-VE', {
+            weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+          })}
+          {' · '}{currentMood.emoji} {currentMood.label}
+        </div>
+
+        {/* TÍTULO */}
+        <input
+          value={title}
+          onChange={e => setTitle(e.target.value)}
+          placeholder="Título de la entrada..."
+          style={{
+            width: '100%', background: 'transparent', border: 'none',
+            outline: 'none', fontSize: 'clamp(22px, 3vw, 32px)',
+            fontWeight: 700, color: '#F1F5F9',
+            fontFamily: 'Inter, sans-serif', letterSpacing: '-0.5px',
+            boxSizing: 'border-box',
+          }}
+        />
+
+        <div style={{ height: '1px', background: '#1F2937' }} />
+
+        {/* HINT */}
+        <div style={{ fontSize: '11px', color: '#374151', fontStyle: 'italic' }}>
+          💡 Selecciona texto para ver opciones de formato · Nueva línea vacía para menú de bloques
+        </div>
+
+        {/* EDITOR TIPTAP */}
+        <div style={{ flex: 1, minHeight: '400px' }}>
+          {editor && (
+            <>
+              <BubbleMenuBar editor={editor} />
+              <FloatingMenuBar editor={editor} onImageClick={() => fileRef.current?.click()} />
+            </>
+          )}
+          <EditorContent editor={editor} style={{ minHeight: '400px' }} />
+        </div>
+
+        {/* CONTEO DE PALABRAS */}
+        {editor && (
+          <div style={{ fontSize: '11px', color: '#374151', textAlign: 'right', paddingTop: '8px', borderTop: '1px solid #1F2937' }}>
+            {editor.storage.characterCount.words()} palabras · {editor.storage.characterCount.characters()} caracteres
+          </div>
+        )}
+      </div>
+
+      <style>{`
+        .ProseMirror { outline: none; min-height: 400px; }
+        .ProseMirror p { margin: 0 0 12px; }
+        .ProseMirror h1 { font-size: 26px; font-weight: 700; color: #F1F5F9; margin: 20px 0 10px; letter-spacing: -0.5px; }
+        .ProseMirror h2 { font-size: 20px; font-weight: 600; color: #E2E8F0; margin: 16px 0 8px; }
+        .ProseMirror h3 { font-size: 16px; font-weight: 600; color: #CBD5E1; margin: 14px 0 6px; }
+        .ProseMirror blockquote { border-left: 3px solid #B026FF; margin: 12px 0; padding: 4px 0 4px 16px; color: #B026FF; font-style: italic; }
+        .ProseMirror ul { padding-left: 20px; margin: 8px 0; }
+        .ProseMirror ol { padding-left: 20px; margin: 8px 0; }
+        .ProseMirror li { margin-bottom: 4px; color: #CBD5E1; }
+        .ProseMirror li::marker { color: #00F5FF; }
+        .ProseMirror ul[data-type="taskList"] { padding-left: 0; list-style: none; }
+        .ProseMirror ul[data-type="taskList"] li { display: flex; align-items: flex-start; gap: 10px; }
+        .ProseMirror ul[data-type="taskList"] li label { margin-top: 2px; }
+        .ProseMirror ul[data-type="taskList"] li input[type="checkbox"] { accent-color: #00F5FF; width: 16px; height: 16px; cursor: pointer; }
+        .ProseMirror ul[data-type="taskList"] li[data-checked="true"] > div { text-decoration: line-through; color: #374151; }
+        .ProseMirror img { max-width: 100%; border-radius: 10px; margin: 12px 0; border: 1px solid #1F2937; max-height: 400px; object-fit: contain; display: block; }
+        .ProseMirror hr { border: none; border-top: 1px solid #1F2937; margin: 20px 0; }
+        .ProseMirror code { background: #0d1120; border: 1px solid #1F2937; border-radius: 4px; padding: 2px 6px; font-family: JetBrains Mono, monospace; font-size: 13px; color: #00F5FF; }
+        .ProseMirror pre { background: #0d1120; border: 1px solid #1F2937; border-radius: 8px; padding: 14px; margin: 12px 0; overflow-x: auto; }
+        .ProseMirror pre code { background: none; border: none; padding: 0; color: #00F5FF; }
+        .ProseMirror mark { background: #FFB80033; color: #FFB800; border-radius: 3px; padding: 0 2px; }
+        .ProseMirror p.is-editor-empty:first-child::before { content: attr(data-placeholder); float: left; color: #374151; pointer-events: none; height: 0; font-style: italic; }
+        @media(max-width:600px){.mood-label{display:none}.img-label{display:none}}
+      `}</style>
     </div>
   )
 }

@@ -12,6 +12,16 @@ export async function verifyPassword(password: string, hash: string): Promise<bo
   return pwHash === hash
 }
 
+// Mantenemos Block por compatibilidad con DiaryEntryCard
+export interface Block {
+  id: string
+  type: string
+  content: string
+  checked?: boolean
+  items?: string[]
+  level?: 1 | 2 | 3
+}
+
 export interface DiaryEntry {
   id: string
   user_id: string

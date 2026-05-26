@@ -29,11 +29,13 @@ function getPreviewImage(html: unknown): string | null {
 export default function DiaryEntryCard({ entry, onEdit, onDelete }: Props) {
   const [showConfirm, setShowConfirm] = useState(false)
 
-  const mood    = MOODS.find(m => m.key === entry.mood) || MOODS[2]
-  const date    = new Date(entry.date + 'T12:00:00')
-  const label   = date.toLocaleDateString('es-VE', { weekday: 'long', day: 'numeric', month: 'long' })
-  const preview = stripHtml(entry.content)
-  const image   = getPreviewImage(entry.content)
+  const mood      = MOODS.find(m => m.key === entry.mood) || MOODS[2]
+  const dateStr   = entry.date.includes('T') ? entry.date.split('T')[0] : entry.date
+  const timeStr   = entry.date.includes('T') ? entry.date.split('T')[1].slice(0, 5) : null
+  const date      = new Date(dateStr + 'T12:00:00')
+  const label     = date.toLocaleDateString('es-VE', { weekday: 'long', day: 'numeric', month: 'long' })
+  const preview   = stripHtml(entry.content)
+  const image     = getPreviewImage(entry.content)
 
   return (
     <div style={{
@@ -78,6 +80,9 @@ export default function DiaryEntryCard({ entry, onEdit, onDelete }: Props) {
             }}>
               <Calendar size={10} />
               {label}
+              {timeStr && (
+                <span style={{ textTransform: 'none', marginLeft: '2px' }}>· {timeStr}</span>
+              )}
             </div>
           </div>
         </div>

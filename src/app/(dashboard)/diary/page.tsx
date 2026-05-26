@@ -177,7 +177,7 @@ export default function DiaryPage() {
       </div>
 
       {/* HOY */}
-      {!entries.find(e => e.date === today) && !search && (
+      {!entries.find(e => e.date.split('T')[0] === today) && !search && (
         <div onClick={() => setEditing('new')} style={{
           background: 'var(--surface)', border: '1px dashed #B026FF44',
           borderRadius: '14px', padding: '18px',

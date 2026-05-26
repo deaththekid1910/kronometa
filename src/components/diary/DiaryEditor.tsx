@@ -35,6 +35,17 @@ export default function DiaryEditor({ entry, date, timezone, userId, onSave, onC
   const fileRef                   = useRef<HTMLInputElement>(null)
   const autoSaveTimer             = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  const [entryDate, setEntryDate] = useState<string>(() => {
+    const src = entry?.date || date
+    return src.includes('T') ? src.split('T')[0] : src
+  })
+  const [entryTime, setEntryTime] = useState<string>(() => {
+    const src = entry?.date || date
+    if (src.includes('T')) return src.split('T')[1].slice(0, 5)
+    const now = new Date()
+    return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+  })
+
   const editor = useEditor({
     extensions: [
       StarterKit,
@@ -129,7 +140,7 @@ export default function DiaryEditor({ entry, date, timezone, userId, onSave, onC
       title:    title.trim(),
       content:  editor.getHTML(),
       mood,
-      date,
+      date:     `${entryDate}T${entryTime}`,
       timezone,
     }
 
@@ -265,12 +276,35 @@ export default function DiaryEditor({ entry, date, timezone, userId, onSave, onC
         position: 'relative',
       }}>
 
-        {/* FECHA */}
-        <div style={{ fontSize: '12px', color: '#374151', textTransform: 'capitalize' }}>
-          {new Date(date + 'T12:00:00').toLocaleDateString('es-VE', {
-            weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
-          })}
-          {' · '}{currentMood.emoji} {currentMood.label}
+        {/* FECHA Y HORA */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          <input
+            type="date"
+            value={entryDate}
+            onChange={e => setEntryDate(e.target.value)}
+            style={{
+              background: '#0d1120', border: '1px solid #1F2937',
+              borderRadius: '6px', color: '#64748B',
+              fontSize: '12px', padding: '4px 8px',
+              fontFamily: 'Inter, sans-serif', outline: 'none',
+              cursor: 'pointer', colorScheme: 'dark',
+            }}
+          />
+          <input
+            type="time"
+            value={entryTime}
+            onChange={e => setEntryTime(e.target.value)}
+            style={{
+              background: '#0d1120', border: '1px solid #1F2937',
+              borderRadius: '6px', color: '#64748B',
+              fontSize: '12px', padding: '4px 8px',
+              fontFamily: 'Inter, sans-serif', outline: 'none',
+              cursor: 'pointer', colorScheme: 'dark',
+            }}
+          />
+          <span style={{ fontSize: '12px', color: '#374151' }}>
+            · {currentMood.emoji} {currentMood.label}
+          </span>
         </div>
 
         {/* TÍTULO */}

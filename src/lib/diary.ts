@@ -29,6 +29,7 @@ export interface DiaryEntry {
   content: string
   mood: string
   date: string
+  time?: string   // HH:MM — columna separada en la BD
   timezone: string
   created_at: string
   updated_at: string

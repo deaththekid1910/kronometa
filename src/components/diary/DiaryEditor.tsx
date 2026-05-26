@@ -40,8 +40,16 @@ export default function DiaryEditor({ entry, date, timezone, userId, onSave, onC
     return src.includes('T') ? src.split('T')[0] : src
   })
   const [entryTime, setEntryTime] = useState<string>(() => {
-    const src = entry?.date || date
-    if (src.includes('T')) return src.split('T')[1].slice(0, 5)
+    // 1. Campo time separado (nuevo)
+    if (entry?.time) return entry.time
+    // 2. Legacy: tiempo embebido en date "YYYY-MM-DDTHH:MM"
+    if (entry?.date?.includes('T')) return entry.date.split('T')[1].slice(0, 5)
+    // 3. Nueva entrada → hora actual del sistema
+    if (!entry) {
+      const now = new Date()
+      return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+    }
+    // 4. Entrada antigua sin hora guardada → hora actual
     const now = new Date()
     return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
   })
@@ -140,7 +148,8 @@ export default function DiaryEditor({ entry, date, timezone, userId, onSave, onC
       title:    title.trim(),
       content:  editor.getHTML(),
       mood,
-      date:     `${entryDate}T${entryTime}`,
+      date:     entryDate,
+      time:     entryTime,
       timezone,
     }
 

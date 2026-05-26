@@ -31,7 +31,9 @@ export default function DiaryEntryCard({ entry, onEdit, onDelete }: Props) {
 
   const mood      = MOODS.find(m => m.key === entry.mood) || MOODS[2]
   const dateStr   = entry.date.includes('T') ? entry.date.split('T')[0] : entry.date
-  const timeStr   = entry.date.includes('T') ? entry.date.split('T')[1].slice(0, 5) : null
+  // Preferir campo time separado; si no, intentar extraerlo del date (legacy)
+  const timeStr   = entry.time
+    || (entry.date.includes('T') ? entry.date.split('T')[1].slice(0, 5) : null)
   const date      = new Date(dateStr + 'T12:00:00')
   const label     = date.toLocaleDateString('es-VE', { weekday: 'long', day: 'numeric', month: 'long' })
   const preview   = stripHtml(entry.content)

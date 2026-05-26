@@ -88,23 +88,25 @@ export default function DiaryPage() {
 
   // EDITOR — ocupa TODO el espacio disponible
   if (editing) return (
-    <div style={{
-      position: 'fixed',
-      top: 0, left: 0, right: 0, bottom: 0,
-      zIndex: 30,
-      background: '#0A0E1A',
-      display: 'flex', flexDirection: 'column',
-    }}>
+  <div style={{
+    position: 'fixed',
+    top: 0, left: 0, right: 0, bottom: 0,
+    zIndex: 30,
+    background: '#0A0E1A',
+    display: 'flex', flexDirection: 'column',
+  }}>
+    {typeof window !== 'undefined' && (
       <DiaryEditor
-        entry={editing === 'new' ? undefined : editing}
+        entry={editing === 'new' ? undefined : editing as DiaryEntry}
         date={editing === 'new' ? today : (editing as DiaryEntry).date}
         timezone={timezone}
         userId={userId}
         onSave={handleSave}
         onCancel={() => setEditing(null)}
       />
-    </div>
-  )
+    )}
+  </div>
+)
 
   // LISTA
   return (

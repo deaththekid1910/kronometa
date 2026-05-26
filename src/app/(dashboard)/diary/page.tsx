@@ -42,12 +42,18 @@ export default function DiaryPage() {
   }
 
   async function loadEntries() {
-    const supabase = createClient()
-    const { data } = await supabase
-      .from('diary_entries').select('*')
-      .eq('user_id', userId)
-      .order('date', { ascending: false })
-    setEntries(data || [])
+    try {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('diary_entries').select('*')
+        .eq('user_id', userId)
+        .order('date', { ascending: false })
+      if (error) console.error('[Diary] loadEntries:', error.message)
+      setEntries(data || [])
+    } catch (err) {
+      console.error('[Diary] loadEntries exception:', err)
+      setEntries([])
+    }
   }
 
   async function handleUnlock() {
@@ -72,8 +78,8 @@ export default function DiaryPage() {
 
   const filtered = entries.filter(e =>
     !search ||
-    e.title.toLowerCase().includes(search.toLowerCase()) ||
-    e.content.toLowerCase().includes(search.toLowerCase())
+    (e.title || '').toLowerCase().includes(search.toLowerCase()) ||
+    (typeof e.content === 'string' ? e.content : '').toLowerCase().includes(search.toLowerCase())
   )
 
   if (loading) return (

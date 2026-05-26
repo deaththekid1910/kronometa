@@ -10,15 +10,18 @@ interface Props {
   onDelete: () => void
 }
 
-function stripHtml(html: string): string {
-  return html
+function stripHtml(html: unknown): string {
+  if (!html) return ''
+  const str = typeof html === 'string' ? html : JSON.stringify(html)
+  return str
     .replace(/<[^>]*>/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
     .slice(0, 200)
 }
 
-function getPreviewImage(html: string): string | null {
+function getPreviewImage(html: unknown): string | null {
+  if (!html || typeof html !== 'string') return null
   const match = html.match(/<img[^>]+src="([^"]+)"/)
   return match ? match[1] : null
 }

@@ -11,18 +11,21 @@ import TimerWidget from '@/components/timer/TimerWidget'
 import Badge from '@/components/ui/Badge'
 import Button from '@/components/ui/Button'
 import { getTotalSeconds, formatTime } from '@/lib/timer'
-import { ArrowLeft, Plus, Target, Calendar, Clock, CheckCircle2, Circle, Trash2 } from 'lucide-react'
+import {
+  ArrowLeft, Plus, Target, Calendar,
+  Clock, CheckCircle2, Circle, Trash2
+} from 'lucide-react'
 
 export default function GoalDetailPage() {
-  const { id }   = useParams<{ id: string }>()
-  const router   = useRouter()
-  const [goal,      setGoal]      = useState<GoalWithStats | null>(null)
-  const [subGoals,  setSubGoals]  = useState<SubGoal[]>([])
-  const [totalSecs, setTotalSecs] = useState(0)
-  const [loading,   setLoading]   = useState(true)
-  const [showModal, setShowModal] = useState(false)
-  const [confirmDel,setConfirmDel]= useState(false)
-  const [deleting,  setDeleting]  = useState(false)
+  const { id }    = useParams<{ id: string }>()
+  const router    = useRouter()
+  const [goal,       setGoal]       = useState<GoalWithStats | null>(null)
+  const [subGoals,   setSubGoals]   = useState<SubGoal[]>([])
+  const [totalSecs,  setTotalSecs]  = useState(0)
+  const [loading,    setLoading]    = useState(true)
+  const [showModal,  setShowModal]  = useState(false)
+  const [confirmDel, setConfirmDel] = useState(false)
+  const [deleting,   setDeleting]   = useState(false)
 
   useEffect(() => { loadGoal() }, [id])
 
@@ -48,21 +51,35 @@ export default function GoalDetailPage() {
 
   function handleComplete(subGoalId: string) {
     setSubGoals(prev =>
-      prev.map(sg => sg.id === subGoalId ? { ...sg, completed_at: new Date().toISOString() } : sg)
+      prev.map(sg =>
+        sg.id === subGoalId ? { ...sg, completed_at: new Date().toISOString() } : sg
+      )
     )
   }
 
   function handleUncomplete(subGoalId: string) {
     setSubGoals(prev =>
-      prev.map(sg => sg.id === subGoalId ? { ...sg, completed_at: undefined } : sg)
+      prev.map(sg =>
+        sg.id === subGoalId ? { ...sg, completed_at: undefined } : sg
+      )
     )
+  }
+
+  function handleUpdate(updated: SubGoal) {
+    setSubGoals(prev =>
+      prev.map(sg => sg.id === updated.id ? updated : sg)
+    )
+  }
+
+  function handleDeleteSubGoal(subGoalId: string) {
+    setSubGoals(prev => prev.filter(sg => sg.id !== subGoalId))
   }
 
   function handleAddSubGoal(subGoal: SubGoal) {
     setSubGoals(prev => [...prev, subGoal])
   }
 
-  async function handleDelete() {
+  async function handleDeleteGoal() {
     setDeleting(true)
     const supabase = createClient()
     await supabase.from('goals').update({ archived: true }).eq('id', id)
@@ -71,13 +88,21 @@ export default function GoalDetailPage() {
   }
 
   if (loading) return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh', color: 'var(--dim)', fontFamily: 'var(--font-mono)', fontSize: '13px' }}>
+    <div style={{
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      height: '60vh', color: 'var(--dim)',
+      fontFamily: 'var(--font-mono)', fontSize: '13px',
+    }}>
       cargando...
     </div>
   )
 
   if (!goal) return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '60vh', gap: '12px' }}>
+    <div style={{
+      display: 'flex', flexDirection: 'column',
+      alignItems: 'center', justifyContent: 'center',
+      height: '60vh', gap: '12px',
+    }}>
       <p style={{ color: 'var(--muted)' }}>Meta no encontrada</p>
       <Button variant="ghost" size="sm" onClick={() => router.back()}>Volver</Button>
     </div>
@@ -106,9 +131,11 @@ export default function GoalDetailPage() {
           width: '34px', height: '34px', borderRadius: 'var(--radius-sm)',
           background: 'var(--surface)', border: '1px solid var(--border)',
           color: 'var(--muted)', cursor: 'pointer', flexShrink: 0,
+          transition: 'all var(--transition)',
         }}>
           <ArrowLeft size={16} />
         </button>
+
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
             <h1 style={{ fontSize: '18px', fontWeight: 600, margin: 0 }}>{goal.title}</h1>
@@ -118,12 +145,14 @@ export default function GoalDetailPage() {
             )}
           </div>
           {goal.description && (
-            <p style={{ fontSize: '13px', color: 'var(--muted)', margin: '4px 0 0' }}>{goal.description}</p>
+            <p style={{ fontSize: '13px', color: 'var(--muted)', margin: '4px 0 0' }}>
+              {goal.description}
+            </p>
           )}
         </div>
+
         <TimerWidget goalId={goal.id} color={accent} />
 
-        {/* BOTÓN ELIMINAR */}
         <button
           onClick={() => setConfirmDel(true)}
           title="Eliminar meta"
@@ -141,13 +170,13 @@ export default function GoalDetailPage() {
         </button>
       </div>
 
-      {/* CONFIRM ELIMINAR */}
+      {/* CONFIRM ELIMINAR META */}
       {confirmDel && (
         <div style={{
           background: '#FF386010', border: '1px solid #FF386033',
           borderRadius: 'var(--radius-md)', padding: '14px 16px',
-          marginBottom: '20px', display: 'flex', alignItems: 'center',
-          gap: '12px', flexWrap: 'wrap',
+          marginBottom: '20px', display: 'flex',
+          alignItems: 'center', gap: '12px', flexWrap: 'wrap',
         }}>
           <span style={{ fontSize: '13px', color: 'var(--text)', flex: 1 }}>
             ¿Eliminar <strong>{goal.title}</strong> y todas sus submetas?
@@ -158,7 +187,7 @@ export default function GoalDetailPage() {
               background: 'transparent', border: '1px solid var(--border)',
               color: 'var(--muted)', fontSize: '12px', cursor: 'pointer',
             }}>Cancelar</button>
-            <button onClick={handleDelete} disabled={deleting} style={{
+            <button onClick={handleDeleteGoal} disabled={deleting} style={{
               padding: '6px 14px', borderRadius: 'var(--radius-sm)',
               background: 'var(--red)', border: 'none',
               color: '#fff', fontSize: '12px', cursor: 'pointer', fontWeight: 600,
@@ -170,11 +199,15 @@ export default function GoalDetailPage() {
       )}
 
       {/* STATS */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '10px', marginBottom: '24px' }}>
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
+        gap: '10px', marginBottom: '24px',
+      }}>
         {[
           { icon: <CheckCircle2 size={14} />, label: 'Completadas', value: `${completed}/${total}`, color: 'var(--green)' },
-          { icon: <Clock size={14} />,        label: 'Tiempo total', value: formatTime(totalSecs),  color: 'var(--amber)', mono: true },
-          { icon: <Target size={14} />,       label: 'Progreso',    value: `${progress}%`,          color: accent },
+          { icon: <Clock size={14} />,        label: 'Tiempo total', value: formatTime(totalSecs), color: 'var(--amber)', mono: true },
+          { icon: <Target size={14} />,       label: 'Progreso',    value: `${progress}%`,         color: accent },
           ...(goal.deadline ? [{
             icon: <Calendar size={14} />,
             label: 'Vence',
@@ -186,7 +219,10 @@ export default function GoalDetailPage() {
             background: 'var(--surface)', border: '1px solid var(--border)',
             borderRadius: 'var(--radius-md)', padding: '14px 16px',
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: 'var(--muted)', fontSize: '11px', marginBottom: '8px' }}>
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: '5px',
+              color: 'var(--muted)', fontSize: '11px', marginBottom: '8px',
+            }}>
               <span style={{ color: s.color }}>{s.icon}</span>
               {s.label}
             </div>
@@ -206,11 +242,21 @@ export default function GoalDetailPage() {
           background: 'var(--surface)', border: '1px solid var(--border)',
           borderRadius: 'var(--radius-lg)', padding: '20px', marginBottom: '24px',
         }}>
-          <div style={{ marginBottom: '8px', display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: '11px', color: 'var(--muted)', letterSpacing: '1px' }}>PROGRESO GENERAL</span>
-            <span style={{ fontSize: '12px', fontFamily: 'var(--font-mono)', color: accent }}>{progress}%</span>
+          <div style={{
+            marginBottom: '8px',
+            display: 'flex', justifyContent: 'space-between',
+          }}>
+            <span style={{ fontSize: '11px', color: 'var(--muted)', letterSpacing: '1px' }}>
+              PROGRESO GENERAL
+            </span>
+            <span style={{ fontSize: '12px', fontFamily: 'var(--font-mono)', color: accent }}>
+              {progress}%
+            </span>
           </div>
-          <div style={{ height: '6px', background: 'var(--border)', borderRadius: '6px', overflow: 'hidden', marginBottom: '4px' }}>
+          <div style={{
+            height: '6px', background: 'var(--border)',
+            borderRadius: '6px', overflow: 'hidden', marginBottom: '4px',
+          }}>
             <div style={{
               height: '100%', width: `${progress}%`,
               background: `linear-gradient(90deg, ${accent}88, ${accent})`,
@@ -223,13 +269,23 @@ export default function GoalDetailPage() {
 
       {/* SUBMETAS */}
       <div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+        <div style={{
+          display: 'flex', alignItems: 'center',
+          justifyContent: 'space-between', marginBottom: '12px',
+        }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '11px', color: 'var(--muted)', letterSpacing: '1px', fontWeight: 500 }}>SUBMETAS</span>
+            <span style={{
+              fontSize: '11px', color: 'var(--muted)',
+              letterSpacing: '1px', fontWeight: 500,
+            }}>SUBMETAS</span>
             <Badge color="gray">{total} en total</Badge>
           </div>
           {goal.type === 'goal' && (
-            <Button variant="secondary" size="sm" icon={<Plus size={13} />} onClick={() => setShowModal(true)}>
+            <Button
+              variant="secondary" size="sm"
+              icon={<Plus size={13} />}
+              onClick={() => setShowModal(true)}
+            >
               Agregar
             </Button>
           )}
@@ -238,13 +294,20 @@ export default function GoalDetailPage() {
         {subGoals.length === 0 ? (
           <div style={{
             textAlign: 'center', padding: '3rem',
-            background: 'var(--surface)', border: `1px dashed ${accent}33`,
+            background: 'var(--surface)',
+            border: `1px dashed ${accent}33`,
             borderRadius: 'var(--radius-lg)',
           }}>
             <Circle size={32} color={accent} style={{ opacity: 0.4, marginBottom: '12px' }} />
-            <p style={{ color: 'var(--muted)', fontSize: '14px', marginBottom: '12px' }}>Sin submetas aún</p>
-            <Button variant="secondary" size="sm" icon={<Plus size={13} />} onClick={() => setShowModal(true)}
-              style={{ background: `${accent}12`, color: accent, borderColor: `${accent}30` }}>
+            <p style={{ color: 'var(--muted)', fontSize: '14px', marginBottom: '12px' }}>
+              Sin submetas aún
+            </p>
+            <Button
+              variant="secondary" size="sm"
+              icon={<Plus size={13} />}
+              onClick={() => setShowModal(true)}
+              style={{ background: `${accent}12`, color: accent, borderColor: `${accent}30` }}
+            >
               Agregar primera submeta
             </Button>
           </div>
@@ -258,17 +321,21 @@ export default function GoalDetailPage() {
                 color={accent}
                 onComplete={handleComplete}
                 onUncomplete={handleUncomplete}
+                onUpdate={handleUpdate}
+                onDelete={handleDeleteSubGoal}
               />
             ))}
           </div>
         )}
       </div>
 
+      {/* MODAL AGREGAR SUBMETA */}
       {showModal && (
         <div style={{
           position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)',
           backdropFilter: 'blur(4px)', zIndex: 50,
-          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem',
+          display: 'flex', alignItems: 'center',
+          justifyContent: 'center', padding: '1rem',
         }}>
           <AddSubGoalModal
             goalId={goal.id}

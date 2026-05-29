@@ -4,160 +4,117 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { GoalWithStats, SubGoal } from '@/types'
+import { RecurringTask, RecurringTaskWithLogs } from '@/types/recurring'
 import SubGoalItem from '@/components/goals/SubGoalItem'
 import AvatarTrack from '@/components/goals/AvatarTrack'
 import AddSubGoalModal from '@/components/goals/AddSubGoalModal'
+import RecurringTaskItem from '@/components/goals/RecurringTaskItem'
+import AddRecurringTaskModal from '@/components/goals/AddRecurringTaskModal'
 import TimerWidget from '@/components/timer/TimerWidget'
 import Badge from '@/components/ui/Badge'
 import Button from '@/components/ui/Button'
 import { getTotalSeconds, formatTime } from '@/lib/timer'
-import { RecurringTask, RecurringTaskWithLogs } from '@/types/recurring'
-import RecurringTaskItem from '@/components/goals/RecurringTaskItem'
-import AddRecurringTaskModal from '@/components/goals/AddRecurringTaskModal'
-import { Repeat2 } from 'lucide-react'
 import {
   ArrowLeft, Plus, Target, Calendar,
-  Clock, CheckCircle2, Circle, Trash2
+  Clock, CheckCircle2, Circle, Trash2, Repeat2
 } from 'lucide-react'
 
 export default function GoalDetailPage() {
-  const { id }    = useParams<{ id: string }>()
-  const router    = useRouter()
-  const [goal,       setGoal]       = useState<GoalWithStats | null>(null)
-  const [subGoals,   setSubGoals]   = useState<SubGoal[]>([])
-  const [totalSecs,  setTotalSecs]  = useState(0)
-  const [loading,    setLoading]    = useState(true)
-  const [showModal,  setShowModal]  = useState(false)
-  const [confirmDel, setConfirmDel] = useState(false)
-  const [deleting,   setDeleting]   = useState(false)
-  const [recurringTasks,    setRecurringTasks]    = useState<RecurringTaskWithLogs[]>([])
-  const [showRecurModal,    setShowRecurModal]    = useState(false)
-  const [userId,            setUserId]            = useState('')
+  const { id }  = useParams<{ id: string }>()
+  const router  = useRouter()
+
+  const [goal,           setGoal]           = useState<GoalWithStats | null>(null)
+  const [subGoals,       setSubGoals]       = useState<SubGoal[]>([])
+  const [totalSecs,      setTotalSecs]      = useState(0)
+  const [loading,        setLoading]        = useState(true)
+  const [showModal,      setShowModal]      = useState(false)
+  const [confirmDel,     setConfirmDel]     = useState(false)
+  const [deleting,       setDeleting]       = useState(false)
+  const [recurringTasks, setRecurringTasks] = useState<RecurringTaskWithLogs[]>([])
+  const [showRecurModal, setShowRecurModal] = useState(false)
+  const [userId,         setUserId]         = useState('')
 
   useEffect(() => { loadGoal() }, [id])
 
   async function loadGoal() {
-  const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (user) setUserId(user.id)
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) setUserId(user.id)
 
-  const { data } = await supabase
-    .from('goals')
-    .select('*, sub_goals(*), avatar_state(*)')
-    .eq('id', id)
-    .single()
+    const { data } = await supabase
+      .from('goals')
+      .select('*, sub_goals(*), avatar_state(*)')
+      .eq('id', id)
+      .single()
 
-  if (data) {
-    const sorted = (data.sub_goals || []).sort(
-      (a: SubGoal, b: SubGoal) => a.order_index - b.order_index
-    )
-    setGoal({ ...data, avatar_state: data.avatar_state?.[0] })
-    setSubGoals(sorted)
-    const secs = await getTotalSeconds(id)
-    setTotalSecs(secs)
-  }
+    if (data) {
+      const sorted = (data.sub_goals || []).sort(
+        (a: SubGoal, b: SubGoal) => a.order_index - b.order_index
+      )
+      setGoal({ ...data, avatar_state: data.avatar_state?.[0] })
+      setSubGoals(sorted)
+      const secs = await getTotalSeconds(id)
+      setTotalSecs(secs)
+    }
 
-  // Carga tareas recurrentes
-  const { data: tasks } = await supabase
-    .from('recurring_tasks')
-    .select('*')
-    .eq('goal_id', id)
-    .eq('archived', false)
-    .order('created_at', { ascending: true })
-
-  if (tasks) {
-    const today  = new Date().toISOString().split('T')[0]
-    const since  = new Date()
-    since.setDate(since.getDate() - 30)
-
-    const { data: allLogs } = await supabase
-      .from('recurring_task_logs')
+    const { data: tasks } = await supabase
+      .from('recurring_tasks')
       .select('*')
-      .in('task_id', tasks.map((t: RecurringTask) => t.id))
-      .gte('logged_date', since.toISOString().split('T')[0])
-      .order('logged_date', { ascending: false })
+      .eq('goal_id', id)
+      .eq('archived', false)
+      .order('created_at', { ascending: true })
 
-    const enriched: RecurringTaskWithLogs[] = tasks.map((task: RecurringTask) => {
-      const logs = (allLogs || []).filter(l => l.task_id === task.id)
-      const todayLog = logs.find(l => l.logged_date === today)
+    if (tasks) {
+      const today = new Date().toISOString().split('T')[0]
+      const since = new Date()
+      since.setDate(since.getDate() - 30)
 
-      // Calcular racha
-      const logDates = new Set(logs.map(l => l.logged_date))
-      let streak = 0
-      for (let i = 0; i <= 60; i++) {
-        const d = new Date()
-        d.setDate(d.getDate() - i)
-        const key = d.toISOString().split('T')[0]
-        if (logDates.has(key)) streak++
-        else if (i > 0) break
-      }
+      const { data: allLogs } = await supabase
+        .from('recurring_task_logs')
+        .select('*')
+        .in('task_id', tasks.map((t: RecurringTask) => t.id))
+        .gte('logged_date', since.toISOString().split('T')[0])
+        .order('logged_date', { ascending: false })
 
-      const daysRemaining = Math.max(0, Math.ceil(
-        (new Date(task.deadline).getTime() - new Date(today).getTime()) / 86400000
-      ))
+      const enriched: RecurringTaskWithLogs[] = tasks.map((task: RecurringTask) => {
+        const logs     = (allLogs || []).filter(l => l.task_id === task.id)
+        const todayLog = logs.find(l => l.logged_date === today)
 
-      const daysTotal = Math.max(1, Math.ceil(
-        (new Date(task.deadline).getTime() - new Date(task.created_at).getTime()) / 86400000
-      ))
+        const logDates = new Set(logs.map(l => l.logged_date))
+        let streak = 0
+        for (let i = 0; i <= 60; i++) {
+          const d = new Date()
+          d.setDate(d.getDate() - i)
+          const key = d.toISOString().split('T')[0]
+          if (logDates.has(key)) streak++
+          else if (i > 0) break
+        }
 
-      return {
-        ...task,
-        logs,
-        todayLog,
-        streak,
-        totalDays: daysTotal,
-        daysRemaining,
-        completionPct: Math.min(100, Math.round((logs.length / daysTotal) * 100)),
-      }
-    })
+        const daysRemaining = Math.max(0, Math.ceil(
+          (new Date(task.deadline).getTime() - new Date(today).getTime()) / 86400000
+        ))
+        const daysTotal = Math.max(1, Math.ceil(
+          (new Date(task.deadline).getTime() - new Date(task.created_at).getTime()) / 86400000
+        ))
 
-    setRecurringTasks(enriched)
+        return {
+          ...task,
+          logs,
+          todayLog,
+          streak,
+          totalDays:     daysTotal,
+          daysRemaining,
+          completionPct: Math.min(100, Math.round((logs.length / daysTotal) * 100)),
+        }
+      })
+
+      setRecurringTasks(enriched)
+    }
+
+    setLoading(false)
   }
 
-  setLoading(false)
-}
-
-  function handleAddRecurring(task: RecurringTask) {
-  const enriched: RecurringTaskWithLogs = {
-    ...task,
-    logs: [],
-    todayLog: undefined,
-    streak: 0,
-    totalDays: 1,
-    daysRemaining: Math.max(0, Math.ceil(
-      (new Date(task.deadline).getTime() - Date.now()) / 86400000
-    )),
-    completionPct: 0,
-  }
-  setRecurringTasks(prev => [...prev, enriched])
-}
-
-function handleLogRecurring(taskId: string) {
-  const today = new Date().toISOString().split('T')[0]
-  setRecurringTasks(prev => prev.map(t => {
-    if (t.id !== taskId) return t
-    const newLog = {
-      id: Math.random().toString(36).slice(2),
-      task_id: taskId,
-      user_id: userId,
-      logged_date: today,
-      count: t.target_count,
-      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      created_at: new Date().toISOString(),
-    }
-    return {
-      ...t,
-      logs: [newLog, ...t.logs],
-      todayLog: newLog,
-      streak: t.streak + 1,
-    }
-  }))
-}
-
-function handleDeleteRecurring(taskId: string) {
-  setRecurringTasks(prev => prev.filter(t => t.id !== taskId))
-}
-
+  // ── Submetas ──────────────────────────────────────────
   function handleComplete(subGoalId: string) {
     setSubGoals(prev =>
       prev.map(sg =>
@@ -175,9 +132,7 @@ function handleDeleteRecurring(taskId: string) {
   }
 
   function handleUpdate(updated: SubGoal) {
-    setSubGoals(prev =>
-      prev.map(sg => sg.id === updated.id ? updated : sg)
-    )
+    setSubGoals(prev => prev.map(sg => sg.id === updated.id ? updated : sg))
   }
 
   function handleDeleteSubGoal(subGoalId: string) {
@@ -188,6 +143,44 @@ function handleDeleteRecurring(taskId: string) {
     setSubGoals(prev => [...prev, subGoal])
   }
 
+  // ── Tareas recurrentes ────────────────────────────────
+  function handleAddRecurring(task: RecurringTask) {
+    const enriched: RecurringTaskWithLogs = {
+      ...task,
+      logs:          [],
+      todayLog:      undefined,
+      streak:        0,
+      totalDays:     1,
+      daysRemaining: Math.max(0, Math.ceil(
+        (new Date(task.deadline).getTime() - Date.now()) / 86400000
+      )),
+      completionPct: 0,
+    }
+    setRecurringTasks(prev => [...prev, enriched])
+  }
+
+  function handleLogRecurring(taskId: string) {
+    const today = new Date().toISOString().split('T')[0]
+    setRecurringTasks(prev => prev.map(t => {
+      if (t.id !== taskId) return t
+      const newLog = {
+        id:          Math.random().toString(36).slice(2),
+        task_id:     taskId,
+        user_id:     userId,
+        logged_date: today,
+        count:       t.target_count,
+        timezone:    Intl.DateTimeFormat().resolvedOptions().timeZone,
+        created_at:  new Date().toISOString(),
+      }
+      return { ...t, logs: [newLog, ...t.logs], todayLog: newLog, streak: t.streak + 1 }
+    }))
+  }
+
+  function handleDeleteRecurring(taskId: string) {
+    setRecurringTasks(prev => prev.filter(t => t.id !== taskId))
+  }
+
+  // ── Meta ──────────────────────────────────────────────
   async function handleDeleteGoal() {
     setDeleting(true)
     const supabase = createClient()
@@ -196,6 +189,7 @@ function handleDeleteRecurring(taskId: string) {
     router.refresh()
   }
 
+  // ── Guards ────────────────────────────────────────────
   if (loading) return (
     <div style={{
       display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -217,10 +211,10 @@ function handleDeleteRecurring(taskId: string) {
     </div>
   )
 
-  const completed = subGoals.filter(sg => sg.completed_at).length
-  const total     = subGoals.length
-  const progress  = total > 0 ? Math.round((completed / total) * 100) : 0
-  const accent    = goal.color
+  const completed  = subGoals.filter(sg => sg.completed_at).length
+  const total      = subGoals.length
+  const progress   = total > 0 ? Math.round((completed / total) * 100) : 0
+  const accent     = goal.color
 
   const badgeColor = (() => {
     if (accent === '#00F5FF') return 'cyan'
@@ -233,14 +227,13 @@ function handleDeleteRecurring(taskId: string) {
   return (
     <div style={{ maxWidth: '780px', margin: '0 auto', padding: '24px 20px' }}>
 
-      {/* HEADER */}
+      {/* ── HEADER ── */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
         <button onClick={() => router.back()} style={{
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           width: '34px', height: '34px', borderRadius: 'var(--radius-sm)',
           background: 'var(--surface)', border: '1px solid var(--border)',
           color: 'var(--muted)', cursor: 'pointer', flexShrink: 0,
-          transition: 'all var(--transition)',
         }}>
           <ArrowLeft size={16} />
         </button>
@@ -264,22 +257,18 @@ function handleDeleteRecurring(taskId: string) {
 
         <button
           onClick={() => setConfirmDel(true)}
-          title="Eliminar meta"
           style={{
             width: '34px', height: '34px', borderRadius: 'var(--radius-sm)',
             background: '#FF386010', border: '1px solid #FF386030',
             color: 'var(--red)', cursor: 'pointer', flexShrink: 0,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            transition: 'all var(--transition)',
           }}
-          onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.background = '#FF386025'}
-          onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.background = '#FF386010'}
         >
           <Trash2 size={15} />
         </button>
       </div>
 
-      {/* CONFIRM ELIMINAR META */}
+      {/* ── CONFIRM ELIMINAR META ── */}
       {confirmDel && (
         <div style={{
           background: '#FF386010', border: '1px solid #FF386033',
@@ -307,7 +296,7 @@ function handleDeleteRecurring(taskId: string) {
         </div>
       )}
 
-      {/* STATS */}
+      {/* ── STATS ── */}
       <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
@@ -315,8 +304,8 @@ function handleDeleteRecurring(taskId: string) {
       }}>
         {[
           { icon: <CheckCircle2 size={14} />, label: 'Completadas', value: `${completed}/${total}`, color: 'var(--green)' },
-          { icon: <Clock size={14} />,        label: 'Tiempo total', value: formatTime(totalSecs), color: 'var(--amber)', mono: true },
-          { icon: <Target size={14} />,       label: 'Progreso',    value: `${progress}%`,         color: accent },
+          { icon: <Clock size={14} />,        label: 'Tiempo total', value: formatTime(totalSecs),  color: 'var(--amber)', mono: true },
+          { icon: <Target size={14} />,       label: 'Progreso',    value: `${progress}%`,          color: accent },
           ...(goal.deadline ? [{
             icon: <Calendar size={14} />,
             label: 'Vence',
@@ -345,16 +334,13 @@ function handleDeleteRecurring(taskId: string) {
         ))}
       </div>
 
-      {/* AVATAR TRACK */}
+      {/* ── AVATAR TRACK ── */}
       {goal.type === 'goal' && (
         <div style={{
           background: 'var(--surface)', border: '1px solid var(--border)',
           borderRadius: 'var(--radius-lg)', padding: '20px', marginBottom: '24px',
         }}>
-          <div style={{
-            marginBottom: '8px',
-            display: 'flex', justifyContent: 'space-between',
-          }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
             <span style={{ fontSize: '11px', color: 'var(--muted)', letterSpacing: '1px' }}>
               PROGRESO GENERAL
             </span>
@@ -376,100 +362,18 @@ function handleDeleteRecurring(taskId: string) {
         </div>
       )}
 
-      {/* SUBMETAS */}
-      <div>
+      {/* ── SUBMETAS ── */}
+      <div style={{ marginBottom: '24px' }}>
         <div style={{
           display: 'flex', alignItems: 'center',
           justifyContent: 'space-between', marginBottom: '12px',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{
-              fontSize: '11px', color: 'var(--muted)',
-              letterSpacing: '1px', fontWeight: 500,
-            }}>SUBMETAS</span>
+            <span style={{ fontSize: '11px', color: 'var(--muted)', letterSpacing: '1px', fontWeight: 500 }}>
+              SUBMETAS
+            </span>
             <Badge color="gray">{total} en total</Badge>
           </div>
-            
-            {/* TAREAS RECURRENTES */}
-{goal.type === 'goal' && (
-  <div style={{ marginTop: '24px' }}>
-    <div style={{
-      display: 'flex', alignItems: 'center',
-      justifyContent: 'space-between', marginBottom: '12px',
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-        <Repeat2 size={14} color="var(--muted)" />
-        <span style={{ fontSize: '11px', color: 'var(--muted)', letterSpacing: '1px', fontWeight: 500 }}>
-          TAREAS RECURRENTES
-        </span>
-        <Badge color="gray">{recurringTasks.length}</Badge>
-      </div>
-      <Button
-        variant="secondary" size="sm"
-        icon={<Plus size={13} />}
-        onClick={() => setShowRecurModal(true)}
-        style={{ background: '#B026FF15', color: 'var(--purple)', borderColor: '#B026FF33' }}
-      >
-        Agregar
-      </Button>
-    </div>
-
-      {recurringTasks.length === 0 ? (
-        <div style={{
-          textAlign: 'center', padding: '2rem',
-          background: 'var(--surface)',
-          border: '1px dashed #B026FF33',
-          borderRadius: 'var(--radius-lg)',
-        }}>
-          <Repeat2 size={28} color="#B026FF" style={{ opacity: 0.4, marginBottom: '10px' }} />
-          <p style={{ color: 'var(--muted)', fontSize: '13px', marginBottom: '10px' }}>
-            Sin tareas recurrentes
-          </p>
-          <p style={{ color: 'var(--dim)', fontSize: '12px', margin: '0 0 12px', lineHeight: 1.5 }}>
-            Úsalas para acciones que debes repetir cada día hasta una fecha límite
-          </p>
-          <Button
-            variant="secondary" size="sm"
-            icon={<Plus size={13} />}
-            onClick={() => setShowRecurModal(true)}
-            style={{ background: '#B026FF15', color: 'var(--purple)', borderColor: '#B026FF33' }}
-          >
-            Agregar tarea recurrente
-          </Button>
-        </div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          {recurringTasks.map(task => (
-            <RecurringTaskItem
-              key={task.id}
-              task={task}
-              userId={userId}
-              onLog={handleLogRecurring}
-              onDelete={handleDeleteRecurring}
-            />
-          ))}
-        </div>
-      )}
-    </div>
-  )}
-
-  {/* MODAL TAREA RECURRENTE */}
-  {showRecurModal && (
-    <div style={{
-      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)',
-      backdropFilter: 'blur(4px)', zIndex: 50,
-      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem',
-    }}>
-      <AddRecurringTaskModal
-        goalId={goal.id}
-        userId={userId}
-        color={accent}
-        onAdd={handleAddRecurring}
-        onClose={() => setShowRecurModal(false)}
-      />
-    </div>
-  )}
-          
           {goal.type === 'goal' && (
             <Button
               variant="secondary" size="sm"
@@ -519,7 +423,70 @@ function handleDeleteRecurring(taskId: string) {
         )}
       </div>
 
-      {/* MODAL AGREGAR SUBMETA */}
+      {/* ── TAREAS RECURRENTES ── */}
+      {goal.type === 'goal' && (
+        <div style={{ marginBottom: '24px' }}>
+          <div style={{
+            display: 'flex', alignItems: 'center',
+            justifyContent: 'space-between', marginBottom: '12px',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Repeat2 size={14} color="var(--muted)" />
+              <span style={{ fontSize: '11px', color: 'var(--muted)', letterSpacing: '1px', fontWeight: 500 }}>
+                TAREAS RECURRENTES
+              </span>
+              <Badge color="gray">{recurringTasks.length}</Badge>
+            </div>
+            <Button
+              variant="secondary" size="sm"
+              icon={<Plus size={13} />}
+              onClick={() => setShowRecurModal(true)}
+              style={{ background: '#B026FF15', color: 'var(--purple)', borderColor: '#B026FF33' }}
+            >
+              Agregar
+            </Button>
+          </div>
+
+          {recurringTasks.length === 0 ? (
+            <div style={{
+              textAlign: 'center', padding: '2rem',
+              background: 'var(--surface)',
+              border: '1px dashed #B026FF33',
+              borderRadius: 'var(--radius-lg)',
+            }}>
+              <Repeat2 size={28} color="#B026FF" style={{ opacity: 0.4, marginBottom: '10px' }} />
+              <p style={{ color: 'var(--muted)', fontSize: '13px', marginBottom: '6px' }}>
+                Sin tareas recurrentes
+              </p>
+              <p style={{ color: 'var(--dim)', fontSize: '12px', margin: '0 0 12px', lineHeight: 1.5 }}>
+                Acciones que debes repetir cada día hasta una fecha límite
+              </p>
+              <Button
+                variant="secondary" size="sm"
+                icon={<Plus size={13} />}
+                onClick={() => setShowRecurModal(true)}
+                style={{ background: '#B026FF15', color: 'var(--purple)', borderColor: '#B026FF33' }}
+              >
+                Agregar tarea recurrente
+              </Button>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {recurringTasks.map(task => (
+                <RecurringTaskItem
+                  key={task.id}
+                  task={task}
+                  userId={userId}
+                  onLog={handleLogRecurring}
+                  onDelete={handleDeleteRecurring}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── MODAL SUBMETA ── */}
       {showModal && (
         <div style={{
           position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)',
@@ -536,6 +503,25 @@ function handleDeleteRecurring(taskId: string) {
           />
         </div>
       )}
+
+      {/* ── MODAL TAREA RECURRENTE ── */}
+      {showRecurModal && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)',
+          backdropFilter: 'blur(4px)', zIndex: 50,
+          display: 'flex', alignItems: 'center',
+          justifyContent: 'center', padding: '1rem',
+        }}>
+          <AddRecurringTaskModal
+            goalId={goal.id}
+            userId={userId}
+            color={accent}
+            onAdd={handleAddRecurring}
+            onClose={() => setShowRecurModal(false)}
+          />
+        </div>
+      )}
+
     </div>
   )
 }

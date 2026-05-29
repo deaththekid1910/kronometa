@@ -11,6 +11,10 @@ import TimerWidget from '@/components/timer/TimerWidget'
 import Badge from '@/components/ui/Badge'
 import Button from '@/components/ui/Button'
 import { getTotalSeconds, formatTime } from '@/lib/timer'
+import { RecurringTask, RecurringTaskWithLogs } from '@/types/recurring'
+import RecurringTaskItem from '@/components/goals/RecurringTaskItem'
+import AddRecurringTaskModal from '@/components/goals/AddRecurringTaskModal'
+import { Repeat2 } from 'lucide-react'
 import {
   ArrowLeft, Plus, Target, Calendar,
   Clock, CheckCircle2, Circle, Trash2
@@ -26,28 +30,133 @@ export default function GoalDetailPage() {
   const [showModal,  setShowModal]  = useState(false)
   const [confirmDel, setConfirmDel] = useState(false)
   const [deleting,   setDeleting]   = useState(false)
+  const [recurringTasks,    setRecurringTasks]    = useState<RecurringTaskWithLogs[]>([])
+  const [showRecurModal,    setShowRecurModal]    = useState(false)
+  const [userId,            setUserId]            = useState('')
 
   useEffect(() => { loadGoal() }, [id])
 
   async function loadGoal() {
-    const supabase = createClient()
-    const { data } = await supabase
-      .from('goals')
-      .select('*, sub_goals(*), avatar_state(*)')
-      .eq('id', id)
-      .single()
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (user) setUserId(user.id)
 
-    if (data) {
-      const sorted = (data.sub_goals || []).sort(
-        (a: SubGoal, b: SubGoal) => a.order_index - b.order_index
-      )
-      setGoal({ ...data, avatar_state: data.avatar_state?.[0] })
-      setSubGoals(sorted)
-      const secs = await getTotalSeconds(id)
-      setTotalSecs(secs)
-    }
-    setLoading(false)
+  const { data } = await supabase
+    .from('goals')
+    .select('*, sub_goals(*), avatar_state(*)')
+    .eq('id', id)
+    .single()
+
+  if (data) {
+    const sorted = (data.sub_goals || []).sort(
+      (a: SubGoal, b: SubGoal) => a.order_index - b.order_index
+    )
+    setGoal({ ...data, avatar_state: data.avatar_state?.[0] })
+    setSubGoals(sorted)
+    const secs = await getTotalSeconds(id)
+    setTotalSecs(secs)
   }
+
+  // Carga tareas recurrentes
+  const { data: tasks } = await supabase
+    .from('recurring_tasks')
+    .select('*')
+    .eq('goal_id', id)
+    .eq('archived', false)
+    .order('created_at', { ascending: true })
+
+  if (tasks) {
+    const today  = new Date().toISOString().split('T')[0]
+    const since  = new Date()
+    since.setDate(since.getDate() - 30)
+
+    const { data: allLogs } = await supabase
+      .from('recurring_task_logs')
+      .select('*')
+      .in('task_id', tasks.map((t: RecurringTask) => t.id))
+      .gte('logged_date', since.toISOString().split('T')[0])
+      .order('logged_date', { ascending: false })
+
+    const enriched: RecurringTaskWithLogs[] = tasks.map((task: RecurringTask) => {
+      const logs = (allLogs || []).filter(l => l.task_id === task.id)
+      const todayLog = logs.find(l => l.logged_date === today)
+
+      // Calcular racha
+      const logDates = new Set(logs.map(l => l.logged_date))
+      let streak = 0
+      for (let i = 0; i <= 60; i++) {
+        const d = new Date()
+        d.setDate(d.getDate() - i)
+        const key = d.toISOString().split('T')[0]
+        if (logDates.has(key)) streak++
+        else if (i > 0) break
+      }
+
+      const daysRemaining = Math.max(0, Math.ceil(
+        (new Date(task.deadline).getTime() - new Date(today).getTime()) / 86400000
+      ))
+
+      const daysTotal = Math.max(1, Math.ceil(
+        (new Date(task.deadline).getTime() - new Date(task.created_at).getTime()) / 86400000
+      ))
+
+      return {
+        ...task,
+        logs,
+        todayLog,
+        streak,
+        totalDays: daysTotal,
+        daysRemaining,
+        completionPct: Math.min(100, Math.round((logs.length / daysTotal) * 100)),
+      }
+    })
+
+    setRecurringTasks(enriched)
+  }
+
+  setLoading(false)
+}
+
+  function handleAddRecurring(task: RecurringTask) {
+  const enriched: RecurringTaskWithLogs = {
+    ...task,
+    logs: [],
+    todayLog: undefined,
+    streak: 0,
+    totalDays: 1,
+    daysRemaining: Math.max(0, Math.ceil(
+      (new Date(task.deadline).getTime() - Date.now()) / 86400000
+    )),
+    completionPct: 0,
+  }
+  setRecurringTasks(prev => [...prev, enriched])
+}
+
+function handleLogRecurring(taskId: string) {
+  const today = new Date().toISOString().split('T')[0]
+  setRecurringTasks(prev => prev.map(t => {
+    if (t.id !== taskId) return t
+    const newLog = {
+      id: Math.random().toString(36).slice(2),
+      task_id: taskId,
+      user_id: userId,
+      logged_date: today,
+      count: t.target_count,
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      created_at: new Date().toISOString(),
+    }
+    return {
+      ...t,
+      logs: [newLog, ...t.logs],
+      todayLog: newLog,
+      streak: t.streak + 1,
+    }
+  }))
+}
+
+function handleDeleteRecurring(taskId: string) {
+  setRecurringTasks(prev => prev.filter(t => t.id !== taskId))
+}
 
   function handleComplete(subGoalId: string) {
     setSubGoals(prev =>
@@ -280,6 +389,87 @@ export default function GoalDetailPage() {
             }}>SUBMETAS</span>
             <Badge color="gray">{total} en total</Badge>
           </div>
+            
+            {/* TAREAS RECURRENTES */}
+{goal.type === 'goal' && (
+  <div style={{ marginTop: '24px' }}>
+    <div style={{
+      display: 'flex', alignItems: 'center',
+      justifyContent: 'space-between', marginBottom: '12px',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <Repeat2 size={14} color="var(--muted)" />
+        <span style={{ fontSize: '11px', color: 'var(--muted)', letterSpacing: '1px', fontWeight: 500 }}>
+          TAREAS RECURRENTES
+        </span>
+        <Badge color="gray">{recurringTasks.length}</Badge>
+      </div>
+      <Button
+        variant="secondary" size="sm"
+        icon={<Plus size={13} />}
+        onClick={() => setShowRecurModal(true)}
+        style={{ background: '#B026FF15', color: 'var(--purple)', borderColor: '#B026FF33' }}
+      >
+        Agregar
+      </Button>
+    </div>
+
+      {recurringTasks.length === 0 ? (
+        <div style={{
+          textAlign: 'center', padding: '2rem',
+          background: 'var(--surface)',
+          border: '1px dashed #B026FF33',
+          borderRadius: 'var(--radius-lg)',
+        }}>
+          <Repeat2 size={28} color="#B026FF" style={{ opacity: 0.4, marginBottom: '10px' }} />
+          <p style={{ color: 'var(--muted)', fontSize: '13px', marginBottom: '10px' }}>
+            Sin tareas recurrentes
+          </p>
+          <p style={{ color: 'var(--dim)', fontSize: '12px', margin: '0 0 12px', lineHeight: 1.5 }}>
+            Úsalas para acciones que debes repetir cada día hasta una fecha límite
+          </p>
+          <Button
+            variant="secondary" size="sm"
+            icon={<Plus size={13} />}
+            onClick={() => setShowRecurModal(true)}
+            style={{ background: '#B026FF15', color: 'var(--purple)', borderColor: '#B026FF33' }}
+          >
+            Agregar tarea recurrente
+          </Button>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          {recurringTasks.map(task => (
+            <RecurringTaskItem
+              key={task.id}
+              task={task}
+              userId={userId}
+              onLog={handleLogRecurring}
+              onDelete={handleDeleteRecurring}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  )}
+
+  {/* MODAL TAREA RECURRENTE */}
+  {showRecurModal && (
+    <div style={{
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)',
+      backdropFilter: 'blur(4px)', zIndex: 50,
+      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem',
+    }}>
+      <AddRecurringTaskModal
+        goalId={goal.id}
+        userId={userId}
+        color={accent}
+        onAdd={handleAddRecurring}
+        onClose={() => setShowRecurModal(false)}
+      />
+    </div>
+  )}
+          
           {goal.type === 'goal' && (
             <Button
               variant="secondary" size="sm"

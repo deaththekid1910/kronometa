@@ -479,6 +479,9 @@ export default function GoalDetailPage() {
                   userId={userId}
                   onLog={handleLogRecurring}
                   onDelete={handleDeleteRecurring}
+                  onUpdate={(updated) => setRecurringTasks(prev =>
+                    prev.map(t => t.id === updated.id ? { ...t, ...updated } : t)
+                  )}
                 />
               ))}
             </div>

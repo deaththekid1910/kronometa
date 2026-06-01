@@ -7,6 +7,7 @@ import ProfileSection  from '@/components/settings/ProfileSection'
 import SecuritySection from '@/components/settings/SecuritySection'
 import TimezoneSection from '@/components/settings/TimezoneSection'
 import DangerSection   from '@/components/settings/DangerSection'
+import NotificationsSection from '@/components/settings/NotificationsSection'
 import { Settings } from 'lucide-react'
 
 interface UserData {
@@ -76,7 +77,10 @@ export default function SettingsPage() {
           {/* FILA 2 — Zona horaria */}
           <TimezoneSection userId={user.id} />
 
-          {/* FILA 3 — Zona de peligro */}
+          {/* FILA 3 — Notificaciones */}
+<NotificationsSection userId={user.id} />
+
+          {/* FILA 4 — Zona de peligro */}
           <DangerSection />
 
         </div>

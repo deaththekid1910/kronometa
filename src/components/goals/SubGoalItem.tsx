@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase'
 import { awardXP, checkAndUnlockAchievements } from '@/lib/gamification'
 import { useXPStore } from '@/store/xpStore'
 import { Check, Calendar, ChevronRight, RotateCcw, Pencil, Trash2 } from 'lucide-react'
+import { playCompleteSound } from '@/lib/notificationSound'
 import EditSubGoalModal from './EditSubGoalModal'
 
 interface Props {
@@ -52,6 +53,9 @@ export default function SubGoalItem({
 
     const newAchs = await checkAndUnlockAchievements(user.id)
     if (newAchs.length > 0) setNewAchievements(newAchs)
+
+    playCompleteSound()
+    onComplete(subGoal.id)
 
     onComplete(subGoal.id)
     setLoading(false)

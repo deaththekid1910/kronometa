@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useXPStore } from '@/store/xpStore'
 import { Achievement } from '@/lib/gamification'
+import { playAchievementSound } from '@/lib/notificationSound'
 
 export default function XPToast() {
   const { newAchievements, clearAchievements } = useXPStore()
@@ -11,6 +12,7 @@ export default function XPToast() {
   useEffect(() => {
     if (newAchievements.length > 0) {
       setVisible(newAchievements[0])
+      playAchievementSound()
       const t = setTimeout(() => {
         setVisible(null)
         clearAchievements()

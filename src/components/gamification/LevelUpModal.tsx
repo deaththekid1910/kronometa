@@ -1,10 +1,16 @@
 'use client'
 
+import { useEffect } from 'react'
 import { useXPStore } from '@/store/xpStore'
-import { getLevelInfo } from '@/lib/gamification'
+import { playLevelUpSound } from '@/lib/notificationSound'
 
 export default function LevelUpModal() {
   const { showLevelUp, levelInfo, previousLevel, closeLevelUp } = useXPStore()
+
+  useEffect(() => {
+    if (showLevelUp) playLevelUpSound()
+  }, [showLevelUp])
+
   if (!showLevelUp) return null
 
   return (
@@ -61,13 +67,13 @@ export default function LevelUpModal() {
         <div style={{ fontSize: '15px', fontWeight: 500, color: 'var(--text)', marginBottom: '6px' }}>
           {levelInfo.title}
         </div>
-
         <div style={{ fontSize: '12px', color: 'var(--muted)', marginBottom: '28px' }}>
           Siguiente nivel en {levelInfo.xpForNext} XP
         </div>
 
         <button onClick={closeLevelUp} style={{
-          padding: '11px 32px', background: 'linear-gradient(135deg, var(--purple), var(--cyan))',
+          padding: '11px 32px',
+          background: 'linear-gradient(135deg, var(--purple), var(--cyan))',
           border: 'none', borderRadius: '30px', color: '#0A0E1A',
           fontSize: '14px', fontWeight: 700, cursor: 'pointer',
         }}>

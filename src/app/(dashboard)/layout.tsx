@@ -7,6 +7,7 @@ import LevelUpModal from '@/components/gamification/LevelUpModal'
 import XPToast from '@/components/gamification/XPToast'
 import MobileNav from '@/components/layout/MobileNav'
 import MobileBottomBar from '@/components/layout/MobileBottomBar'
+import PushNotificationSetup from '@/components/notifications/PushNotificationSetup'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const bp = useBreakpoint()
@@ -49,6 +50,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       <LevelUpModal />
       <XPToast />
+      <PushNotificationSetup />
     </div>
   )
 }

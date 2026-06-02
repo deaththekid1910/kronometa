@@ -10,17 +10,72 @@ import {
   playReminderSound,
 } from '@/lib/notificationSound'
 
+// Clave en localStorage para rastrear cuándo se notificó
+const NOTIF_KEY = 'km_last_notif'
+
+interface NotifRecord {
+  date: string        // YYYY-MM-DD
+  times: string[]     // ['09:00', '18:00'] ya notificadas hoy
+}
+
+function getRecord(): NotifRecord {
+  try {
+    const raw = localStorage.getItem(NOTIF_KEY)
+    if (!raw) return { date: '', times: [] }
+    return JSON.parse(raw)
+  } catch {
+    return { date: '', times: [] }
+  }
+}
+
+function markNotified(time: string) {
+  const today  = new Date().toISOString().split('T')[0]
+  const record = getRecord()
+  if (record.date !== today) {
+    // Nuevo día — reinicia
+    localStorage.setItem(NOTIF_KEY, JSON.stringify({ date: today, times: [time] }))
+  } else {
+    if (!record.times.includes(time)) {
+      record.times.push(time)
+      localStorage.setItem(NOTIF_KEY, JSON.stringify(record))
+    }
+  }
+}
+
+function alreadyNotifiedToday(time: string): boolean {
+  const today  = new Date().toISOString().split('T')[0]
+  const record = getRecord()
+  if (record.date !== today) return false
+  return record.times.includes(time)
+}
+
+// Verifica si ahora mismo coincide con una hora programada (±2 min de margen)
+function matchesScheduledTime(scheduledTime: string): boolean {
+  const now     = new Date()
+  const [h, m]  = scheduledTime.split(':').map(Number)
+  const nowMins = now.getHours() * 60 + now.getMinutes()
+  const schMins = h * 60 + m
+  return Math.abs(nowMins - schMins) <= 2
+}
+
 export default function PushNotificationSetup() {
-  const [permission, setPermission] = useState<NotificationPermission>('default')
-  const { setNotifications }        = useNotificationStore()
+  const [permission,    setPermission]    = useState<NotificationPermission>('default')
+  const [showBanner,    setShowBanner]    = useState(false)
+  const { setNotifications } = useNotificationStore()
 
   useEffect(() => {
     if (typeof window === 'undefined') return
     if ('Notification' in window) {
       setPermission(Notification.permission)
+      if (Notification.permission === 'default') {
+        // Muestra el banner después de 5 segundos
+        setTimeout(() => setShowBanner(true), 5000)
+      }
     }
-    checkAndNotify()
-    const interval = setInterval(checkAndNotify, 10 * 60 * 1000)
+
+    // Verifica cada minuto si es hora de notificar
+    const interval = setInterval(checkSchedule, 60 * 1000)
+    checkSchedule() // verifica inmediatamente al cargar
     return () => clearInterval(interval)
   }, [])
 
@@ -28,9 +83,10 @@ export default function PushNotificationSetup() {
     if (!('Notification' in window)) return
     const result = await Notification.requestPermission()
     setPermission(result)
+    setShowBanner(false)
   }
 
-  async function checkAndNotify() {
+  async function checkSchedule() {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
@@ -41,53 +97,86 @@ export default function PushNotificationSetup() {
       .eq('user_id', user.id)
       .single()
 
-    if (config && !config.enabled) return
+    // Notificaciones deshabilitadas
+    if (!config || !config.enabled) return
 
-    const daysBefore = config?.deadline_days_before || 3
-    const notifs     = await fetchNotifications(user.id, daysBefore)
-    setNotifications(notifs)
+    const scheduledTime = (config.daily_reminder_time || '09:00').slice(0, 5)
 
-    if (notifs.length === 0) return
+    // Solo notifica si el recordatorio diario está activo
+    if (!config.daily_reminder) return
 
-    const urgent = notifs.filter(n => n.type === 'overdue' || n.type === 'due_today')
-    const soon   = notifs.filter(n => n.type === 'due_soon')
+    // Verifica si ahora coincide con la hora programada
+    if (!matchesScheduledTime(scheduledTime)) return
 
-    // Reproduce sonido según urgencia
-    if (urgent.length > 0) {
-      playUrgentSound()
-    } else if (soon.length > 0) {
-      playReminderSound()
-    } else {
-      playNotificationSound()
-    }
+    // Verifica si ya se notificó hoy a esta hora
+    if (alreadyNotifiedToday(scheduledTime)) return
 
-    // Notificaciones del navegador si tiene permiso
-    if (Notification.permission !== 'granted') return
-
-    for (const notif of notifs.slice(0, 3)) {
-      try {
-        const n = new Notification(`KronoMeta · ${notif.title}`, {
-          body:    notif.message,
-          icon:    '/icons/icon-192x192.png',
-          badge:   '/icons/icon-72x72.png',
-          tag:     notif.id,
-          silent:  true, // el sonido lo manejamos nosotros
-        })
-
-        n.onclick = () => {
-          window.focus()
-          if (notif.goalId) window.location.href = `/goals/${notif.goalId}`
-          n.close()
-        }
-
-        // Auto-cierra a los 8 segundos
-        setTimeout(() => n.close(), 8000)
-      } catch {}
-    }
+    // Ejecuta la notificación
+    await runNotification(user.id, config, scheduledTime)
   }
 
-  // Botón de activar notificaciones del sistema
-  if (permission === 'granted') return null
+  async function runNotification(
+    userId: string,
+    config: any,
+    scheduledTime: string
+  ) {
+    const daysBefore = config?.deadline_days_before || 3
+    const notifs     = await fetchNotifications(userId, daysBefore)
+
+    // Filtra según configuración
+    const filtered = notifs.filter(n => {
+      if (n.type === 'overdue' || n.type === 'due_today' || n.type === 'due_soon') {
+        return config.deadline_alerts
+      }
+      if (n.icon === '🔄') return config.recurring_reminders
+      return true
+    })
+
+    setNotifications(notifs)
+
+    // Marca como notificado para no repetir
+    markNotified(scheduledTime)
+
+    if (filtered.length === 0) return
+
+    // Sonido según urgencia
+    const urgent = filtered.filter(n => n.type === 'overdue' || n.type === 'due_today')
+    if (urgent.length > 0) {
+      playUrgentSound()
+    } else {
+      playReminderSound()
+    }
+
+    // Notificación del navegador
+    if (Notification.permission !== 'granted') return
+
+    // Una sola notificación resumen en lugar de spam
+    const title   = urgent.length > 0
+      ? `⚠️ ${urgent.length} alerta${urgent.length > 1 ? 's' : ''} urgente${urgent.length > 1 ? 's' : ''}`
+      : `📅 Tienes ${filtered.length} recordatorio${filtered.length > 1 ? 's' : ''} hoy`
+
+    const body = filtered.slice(0, 3).map(n => `${n.icon} ${n.title}: ${n.message}`).join('\n')
+
+    try {
+      const n = new Notification(`KronoMeta · ${title}`, {
+        body,
+        icon:   '/icons/icon-192x192.png',
+        badge:  '/icons/icon-72x72.png',
+        tag:    'kronometa-daily',  // mismo tag = reemplaza la anterior
+        silent: true,
+      })
+
+      n.onclick = () => {
+        window.focus()
+        window.location.href = '/dashboard'
+        n.close()
+      }
+
+      setTimeout(() => n.close(), 10000)
+    } catch {}
+  }
+
+  if (!showBanner || permission === 'granted') return null
 
   return (
     <div style={{
@@ -99,7 +188,7 @@ export default function PushNotificationSetup() {
       borderRadius: '12px',
       padding: '12px 16px',
       display: 'flex', alignItems: 'center', gap: '12px',
-      boxShadow: '0 8px 32px rgba(0,0,0,0.4), 0 0 0 1px #FFB80022',
+      boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
       maxWidth: '360px', width: 'calc(100% - 32px)',
       animation: 'pwa-slide-up 0.4s ease forwards',
     }}>
@@ -109,7 +198,7 @@ export default function PushNotificationSetup() {
           Activar notificaciones
         </div>
         <div style={{ fontSize: '11px', color: '#64748B' }}>
-          Recibe alertas de vencimientos y recordatorios
+          Recibe alertas a la hora que configures
         </div>
       </div>
       <button
@@ -125,7 +214,7 @@ export default function PushNotificationSetup() {
         Activar
       </button>
       <button
-        onClick={() => setPermission('denied')}
+        onClick={() => setShowBanner(false)}
         style={{
           background: 'none', border: 'none', color: '#374151',
           cursor: 'pointer', padding: '4px', fontSize: '16px', flexShrink: 0,

@@ -8,9 +8,9 @@ import { useNotificationStore } from '@/store/notificationStore'
 import NotificationPanel from './NotificationPanel'
 
 export default function NotificationBell() {
-  const [open, setOpen]       = useState(false)
-  const [loaded, setLoaded]   = useState(false)
-  const ref                   = useRef<HTMLDivElement>(null)
+  const [open,   setOpen]   = useState(false)
+  const [loaded, setLoaded] = useState(false)
+  const ref                 = useRef<HTMLDivElement>(null)
   const { unreadCount, setNotifications } = useNotificationStore()
 
   useEffect(() => {
@@ -30,36 +30,36 @@ export default function NotificationBell() {
   }, [])
 
   async function loadNotifications() {
-  const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
 
-  // Verifica si las notificaciones están habilitadas
-  const { data: config } = await supabase
-    .from('notification_settings')
-    .select('enabled, deadline_alerts, deadline_days_before')
-    .eq('user_id', user.id)
-    .single()
+    const { data: config } = await supabase
+      .from('notification_settings')
+      .select('enabled, deadline_alerts, deadline_days_before')
+      .eq('user_id', user.id)
+      .single()
 
-  // Si están deshabilitadas, limpia
-  if (config && !config.enabled) {
-    setNotifications([])
+    if (config && !config.enabled) {
+      setNotifications([])
+      setLoaded(true)
+      return
+    }
+
+    const daysBefore = config?.deadline_days_before || 3
+    const notifs     = await fetchNotifications(user.id, daysBefore)
+    setNotifications(notifs)
     setLoaded(true)
-    return
   }
-
-  const notifs = await fetchNotifications(user.id, config?.deadline_days_before || 3)
-  setNotifications(notifs)
-  setLoaded(true)
-}
 
   return (
     <div ref={ref} style={{ position: 'relative' }}>
       <button
         onClick={() => setOpen(prev => !prev)}
         style={{
-          position: 'relative', display: 'flex', alignItems: 'center',
-          justifyContent: 'center', width: '36px', height: '36px',
+          position: 'relative',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          width: '36px', height: '36px',
           borderRadius: 'var(--radius-sm)', cursor: 'pointer',
           background: open ? '#00F5FF0D' : 'transparent',
           border: `1px solid ${open ? '#00F5FF33' : 'var(--border)'}`,

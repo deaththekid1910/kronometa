@@ -1,7 +1,10 @@
 import { createClient } from '@/lib/supabase'
 import { AppNotification } from '@/store/notificationStore'
 
-export async function fetchNotifications(userId: string): Promise<AppNotification[]> {
+export async function fetchNotifications(
+  userId: string,
+  daysBefore = 3
+): Promise<AppNotification[]> {
   const supabase = createClient()
   const notifs: AppNotification[] = []
   const now     = new Date()
@@ -11,9 +14,9 @@ export async function fetchNotifications(userId: string): Promise<AppNotificatio
   tomorrow.setDate(tomorrow.getDate() + 1)
   const tomorrowStr = tomorrow.toISOString().split('T')[0]
 
-  const in3days = new Date(now)
-  in3days.setDate(in3days.getDate() + 3)
-  const in3daysStr = in3days.toISOString().split('T')[0]
+  const inNDays = new Date(now)
+  inNDays.setDate(inNDays.getDate() + daysBefore)
+  const inNDaysStr = inNDays.toISOString().split('T')[0]
 
   const { data: goals } = await supabase
     .from('goals')
@@ -75,7 +78,7 @@ export async function fetchNotifications(userId: string): Promise<AppNotificatio
         read:      false,
         created_at: new Date().toISOString(),
       })
-    } else if (sg.due_date <= in3daysStr) {
+    } else if (sg.due_date <= inNDaysStr) {
       notifs.push({
         id:        `soon-${sg.id}`,
         type:      'due_soon',
@@ -119,7 +122,7 @@ export async function fetchNotifications(userId: string): Promise<AppNotificatio
         read:    false,
         created_at: new Date().toISOString(),
       })
-    } else if (deadline <= in3daysStr) {
+    } else if (deadline <= inNDaysStr) {
       notifs.push({
         id:      `goal-soon-${goal.id}`,
         type:    'due_soon',
@@ -131,6 +134,41 @@ export async function fetchNotifications(userId: string): Promise<AppNotificatio
         read:    false,
         created_at: new Date().toISOString(),
       })
+    }
+  }
+
+  // Tareas recurrentes pendientes hoy
+  const { data: recurringTasks } = await supabase
+    .from('recurring_tasks')
+    .select('id, title, goal_id, deadline')
+    .in('goal_id', goalIds)
+    .eq('archived', false)
+    .gte('deadline', today)
+
+  if (recurringTasks && recurringTasks.length > 0) {
+    const { data: todayLogs } = await supabase
+      .from('recurring_task_logs')
+      .select('task_id')
+      .in('task_id', recurringTasks.map(t => t.id))
+      .eq('logged_date', today)
+
+    const loggedIds = new Set((todayLogs || []).map(l => l.task_id))
+
+    for (const rt of recurringTasks) {
+      if (!loggedIds.has(rt.id)) {
+        const goal = goals.find(g => g.id === rt.goal_id)
+        notifs.push({
+          id:      `recurring-${rt.id}`,
+          type:    'due_today',
+          title:   'Tarea recurrente pendiente',
+          message: `"${rt.title}"${goal ? ' en ' + goal.title : ''} · pendiente de hoy`,
+          color:   '#B026FF',
+          icon:    '🔄',
+          goalId:  rt.goal_id,
+          read:    false,
+          created_at: new Date().toISOString(),
+        })
+      }
     }
   }
 

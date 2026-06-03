@@ -35,19 +35,16 @@ export default function SubGoalNode({
         transition: 'all 0.4s ease',
       }}
     >
-      {/* ETIQUETA */}
-      {(isCurrent || done) && (
+      {/* BADGE "ACTUAL" — solo en el nodo activo */}
+      {isCurrent && (
         <div style={{
-          background: done ? color + '22' : '#0A0E1A',
-          border: `1px solid ${color}${isCurrent ? '88' : '44'}`,
-          borderRadius: '8px', padding: '4px 10px',
-          fontSize: '10px', color: isCurrent ? color : 'var(--muted)',
-          whiteSpace: 'nowrap', maxWidth: '120px',
-          overflow: 'hidden', textOverflow: 'ellipsis',
-          boxShadow: isCurrent ? `0 0 12px ${color}44` : 'none',
-          fontWeight: isCurrent ? 500 : 400,
+          background: color, color: '#0A0E1A',
+          borderRadius: '8px', padding: '2px 8px',
+          fontSize: '9px', fontWeight: 700, letterSpacing: '0.5px',
+          whiteSpace: 'nowrap',
+          boxShadow: `0 0 12px ${color}66`,
         }}>
-          {subGoal.title}
+          ACTUAL
         </div>
       )}
 
@@ -74,15 +71,36 @@ export default function SubGoalNode({
         {done ? '✓' : isCurrent ? '★' : `${index + 1}`}
       </div>
 
-      {/* NÚMERO para los no completados ni activos */}
-      {!done && !isCurrent && (
-        <div style={{
-          fontSize: '10px', color: 'var(--dim)',
-          fontFamily: 'var(--font-mono)',
+      {/* TÍTULO — vista previa debajo de cada paso */}
+      <div style={{
+        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px',
+        maxWidth: '96px',
+      }}>
+        <span style={{
+          fontSize: '8px', fontFamily: 'var(--font-mono)',
+          color: done ? color : isCurrent ? color : 'var(--dim)',
+          letterSpacing: '0.5px', lineHeight: 1,
         }}>
-          #{index + 1}
-        </div>
-      )}
+          #{String(index + 1).padStart(2, '0')}
+        </span>
+        <span style={{
+          fontSize: '10px',
+          fontWeight: isCurrent ? 600 : done ? 500 : 400,
+          color: isCurrent ? color : done ? 'var(--text)' : 'var(--muted)',
+          textAlign: 'center',
+          maxWidth: '96px',
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          textDecoration: done ? 'line-through' : 'none',
+          opacity: done ? 0.85 : 1,
+          padding: '2px 7px', borderRadius: '7px',
+          background: 'rgba(10,14,26,0.78)',
+          border: `1px solid ${isCurrent ? color + '66' : done ? color + '33' : 'transparent'}`,
+          backdropFilter: 'blur(3px)',
+          boxShadow: isCurrent ? `0 0 10px ${color}33` : 'none',
+        }}>
+          {subGoal.title}
+        </span>
+      </div>
 
       <style>{`
         @keyframes node-pulse {

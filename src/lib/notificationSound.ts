@@ -2,8 +2,34 @@
 let audioCtx: AudioContext | null = null
 
 function getCtx(): AudioContext {
-  if (!audioCtx) audioCtx = new AudioContext()
+  if (!audioCtx) {
+    const Ctor = window.AudioContext || (window as any).webkitAudioContext
+    audioCtx = new Ctor()
+  }
+  // Por política de autoplay, el contexto puede quedar "suspended" si no se
+  // creó dentro de un gesto del usuario. Reanudarlo aquí permite que los
+  // sonidos disparados por timers (recordatorios) sí suenen.
+  if (audioCtx.state === 'suspended') {
+    audioCtx.resume().catch(() => {})
+  }
   return audioCtx
+}
+
+// Debe llamarse dentro de un gesto del usuario (click/tecla) para desbloquear
+// el audio en navegadores con restricciones de autoplay (incl. iOS/Safari).
+export function unlockAudio() {
+  try {
+    const ctx = getCtx()
+    if (ctx.state === 'suspended') ctx.resume().catch(() => {})
+    // Blip silencioso para terminar de desbloquear el contexto
+    const osc  = ctx.createOscillator()
+    const gain = ctx.createGain()
+    gain.gain.value = 0
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+    osc.start()
+    osc.stop(ctx.currentTime + 0.01)
+  } catch {}
 }
 
 function playTone(

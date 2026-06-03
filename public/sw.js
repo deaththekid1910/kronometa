@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kronometa-v1'
+const CACHE_NAME = 'kronometa-v2'
 
 const STATIC_ASSETS = [
   '/',
@@ -26,6 +26,27 @@ self.addEventListener('activate', (event) => {
     )
   )
   self.clients.claim()
+})
+
+// Clic en una notificación → enfoca/abre la app en la URL indicada
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close()
+  const url = (event.notification.data && event.notification.data.url) || '/dashboard'
+
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      // Si ya hay una ventana abierta, enfócala y navega
+      for (const client of clientList) {
+        if ('focus' in client) {
+          client.focus()
+          if ('navigate' in client) client.navigate(url).catch(() => {})
+          return
+        }
+      }
+      // Si no, abre una nueva
+      if (self.clients.openWindow) return self.clients.openWindow(url)
+    })
+  )
 })
 
 self.addEventListener('fetch', (event) => {

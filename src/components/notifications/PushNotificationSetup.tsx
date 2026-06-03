@@ -8,7 +8,40 @@ import {
   playNotificationSound,
   playUrgentSound,
   playReminderSound,
+  unlockAudio,
 } from '@/lib/notificationSound'
+
+// Muestra una notificación usando el service worker (obligatorio en Android/
+// Chrome móvil, donde `new Notification()` lanza error) con fallback al
+// constructor clásico en escritorio.
+async function showAppNotification(
+  title: string,
+  options: NotificationOptions & { url?: string }
+) {
+  if (typeof window === 'undefined') return
+  if (!('Notification' in window) || Notification.permission !== 'granted') return
+
+  const { url, ...rest } = options
+  try {
+    if ('serviceWorker' in navigator) {
+      const reg = await navigator.serviceWorker.ready
+      await reg.showNotification(title, { ...rest, data: { url } })
+      return
+    }
+  } catch {
+    // cae al fallback
+  }
+
+  try {
+    const n = new Notification(title, rest)
+    n.onclick = () => {
+      window.focus()
+      if (url) window.location.href = url
+      n.close()
+    }
+    setTimeout(() => n.close(), 9000)
+  } catch {}
+}
 
 // Clave en localStorage para rastrear cuándo se notificó
 const NOTIF_KEY = 'km_last_notif'
@@ -73,91 +106,104 @@ export default function PushNotificationSetup() {
       }
     }
 
+    // Desbloquea el audio en el primer gesto del usuario para que los
+    // sonidos disparados por el temporizador después sí suenen.
+    const unlock = () => unlockAudio()
+    window.addEventListener('pointerdown', unlock, { once: true })
+    window.addEventListener('keydown', unlock, { once: true })
+
     // Verifica cada minuto si es hora de notificar
     const interval = setInterval(checkSchedule, 60 * 1000)
     checkSchedule() // verifica inmediatamente al cargar
-    return () => clearInterval(interval)
+    return () => {
+      clearInterval(interval)
+      window.removeEventListener('pointerdown', unlock)
+      window.removeEventListener('keydown', unlock)
+    }
   }, [])
 
   async function requestPermission() {
     if (!('Notification' in window)) return
+    unlockAudio() // este click es un gesto válido para desbloquear audio
     const result = await Notification.requestPermission()
     setPermission(result)
     setShowBanner(false)
   }
 
   async function checkSchedule() {
-  const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
 
-  const { data: config } = await supabase
-    .from('notification_settings')
-    .select('*')
-    .eq('user_id', user.id)
-    .single()
+    const { data: config } = await supabase
+      .from('notification_settings')
+      .select('*')
+      .eq('user_id', user.id)
+      .single()
 
-  if (!config || !config.enabled || !config.daily_reminder) return
+    // Solo se desactiva todo si el usuario apagó explícitamente las notificaciones.
+    // Si no existe configuración guardada aún, se asume activado por defecto.
+    if (config && config.enabled === false) return
 
-  // Lee múltiples horarios
-  let times: { id: string; time: string }[] = []
-  try {
-    const raw = config.daily_reminder_time
-    if (raw && raw.startsWith('[')) {
-      times = JSON.parse(raw)
-    } else if (raw) {
-      times = [{ id: '1', time: raw.slice(0, 5) }]
+    const today = new Date().toISOString().split('T')[0]
+
+    // ── 1. RECORDATORIO DIARIO (resumen) — requiere config con daily_reminder ──
+    if (config && config.daily_reminder) {
+      let times: { id: string; time: string }[] = []
+      try {
+        const raw = config.daily_reminder_time
+        if (raw && raw.startsWith('[')) {
+          times = JSON.parse(raw)
+        } else if (raw) {
+          times = [{ id: '1', time: raw.slice(0, 5) }]
+        }
+      } catch {
+        times = [{ id: '1', time: '09:00' }]
+      }
+
+      for (const t of times) {
+        const scheduledTime = t.time.slice(0, 5)
+        if (matchesScheduledTime(scheduledTime) && !alreadyNotifiedToday(scheduledTime)) {
+          await runNotification(user.id, config, scheduledTime)
+          break // Solo una notificación por ciclo de verificación
+        }
+      }
     }
-  } catch {
-    times = [{ id: '1', time: '09:00' }]
-  }
 
-  // Verifica cada horario configurado
-  for (const t of times) {
-    const scheduledTime = t.time.slice(0, 5)
-    if (matchesScheduledTime(scheduledTime) && !alreadyNotifiedToday(scheduledTime)) {
-      await runNotification(user.id, config, scheduledTime)
-      break // Solo una notificación por ciclo de verificación
-    }
-  }
+    // ── 2. TAREAS RECURRENTES — independiente del recordatorio diario ──
+    // Se omite solo si el usuario apagó "recurring_reminders" explícitamente.
+    if (!config || config.recurring_reminders !== false) {
+      const { data: recurringTasks } = await supabase
+        .from('recurring_tasks')
+        .select('id, title, notification_times, goal_id')
+        .eq('user_id', user.id)
+        .eq('archived', false)
+        .gte('deadline', today)
 
-  // Verifica también horarios de tareas recurrentes individuales
-  const { data: recurringTasks } = await supabase
-    .from('recurring_tasks')
-    .select('id, title, notification_times, goal_id')
-    .eq('user_id', user.id)
-    .eq('archived', false)
-    .gte('deadline', new Date().toISOString().split('T')[0])
+      for (const rt of recurringTasks || []) {
+        const rtTimes: string[] = Array.isArray(rt.notification_times) && rt.notification_times.length > 0
+          ? rt.notification_times
+          : ['09:00']
 
-  for (const rt of recurringTasks || []) {
-    const rtTimes: string[] = Array.isArray(rt.notification_times)
-      ? rt.notification_times
-      : ['09:00']
-
-    for (const t of rtTimes) {
-      const tKey = `rt_${rt.id}_${t}`
-      if (matchesScheduledTime(t) && !alreadyNotifiedToday(tKey)) {
-        markNotified(tKey)
-        playReminderSound()
-
-        if (Notification.permission === 'granted') {
-          try {
-            const n = new Notification(`KronoMeta · 🔄 Tarea recurrente`, {
+        for (const t of rtTimes) {
+          const scheduledTime = (t || '').slice(0, 5)
+          const tKey = `rt_${rt.id}_${scheduledTime}`
+          if (matchesScheduledTime(scheduledTime) && !alreadyNotifiedToday(tKey)) {
+            markNotified(tKey)
+            playReminderSound()
+            await showAppNotification('KronoMeta · 🔄 Tarea recurrente', {
               body:   `"${rt.title}" · pendiente de hoy`,
               icon:   '/icons/icon-192x192.png',
               badge:  '/icons/icon-72x72.png',
-              tag:    `rt-${rt.id}-${t}`,
-              silent: true,
+              tag:    `rt-${rt.id}-${scheduledTime}`,
+              url:    `/goals/${rt.goal_id}`,
             })
-            n.onclick = () => { window.focus(); window.location.href = `/goals/${rt.goal_id}`; n.close() }
-            setTimeout(() => n.close(), 8000)
-          } catch {}
+            break
+          }
         }
-        break
       }
     }
   }
-}
 
   async function runNotification(
     userId: string,
@@ -191,33 +237,20 @@ export default function PushNotificationSetup() {
       playReminderSound()
     }
 
-    // Notificación del navegador
-    if (Notification.permission !== 'granted') return
-
-    // Una sola notificación resumen en lugar de spam
+    // Notificación del navegador (vía service worker; funciona en móvil)
     const title   = urgent.length > 0
       ? `⚠️ ${urgent.length} alerta${urgent.length > 1 ? 's' : ''} urgente${urgent.length > 1 ? 's' : ''}`
       : `📅 Tienes ${filtered.length} recordatorio${filtered.length > 1 ? 's' : ''} hoy`
 
     const body = filtered.slice(0, 3).map(n => `${n.icon} ${n.title}: ${n.message}`).join('\n')
 
-    try {
-      const n = new Notification(`KronoMeta · ${title}`, {
-        body,
-        icon:   '/icons/icon-192x192.png',
-        badge:  '/icons/icon-72x72.png',
-        tag:    'kronometa-daily',  // mismo tag = reemplaza la anterior
-        silent: true,
-      })
-
-      n.onclick = () => {
-        window.focus()
-        window.location.href = '/dashboard'
-        n.close()
-      }
-
-      setTimeout(() => n.close(), 10000)
-    } catch {}
+    await showAppNotification(`KronoMeta · ${title}`, {
+      body,
+      icon:  '/icons/icon-192x192.png',
+      badge: '/icons/icon-72x72.png',
+      tag:   'kronometa-daily',  // mismo tag = reemplaza la anterior
+      url:   '/dashboard',
+    })
   }
 
   if (!showBanner || permission === 'granted') return null

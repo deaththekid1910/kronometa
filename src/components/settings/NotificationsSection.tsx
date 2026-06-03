@@ -485,7 +485,7 @@ export default function NotificationsSection({ userId }: Props) {
           color: 'var(--muted)', lineHeight: 1.6,
         }}>
           <span style={{ color: 'var(--amber)' }}>ℹ️</span>{' '}
-          Las notificaciones suenan exactamente a la hora que configures y solo una vez por día por cada horario. Activa las notificaciones del sistema cuando aparezca el banner para recibirlas aunque la app esté en segundo plano.
+          Las notificaciones suenan a la hora que configures (margen de ±2 min) y solo una vez por día por cada horario. Activa las notificaciones del sistema cuando aparezca el banner. Funcionan mientras la app siga abierta, aunque esté en otra pestaña o minimizada; si cierras la app por completo no podrán dispararse.
         </div>
       </div>
 

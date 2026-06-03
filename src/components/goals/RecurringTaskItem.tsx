@@ -3,10 +3,7 @@
 import { useState } from 'react'
 import { RecurringTask, RecurringTaskWithLogs } from '@/types/recurring'
 import { createClient } from '@/lib/supabase'
-import {
-  Repeat2, Calendar, Flame, Check,
-  Trash2, ChevronDown, ChevronUp, Pencil
-} from 'lucide-react'
+import { Repeat2, Calendar, Flame, Check, Trash2, ChevronDown, ChevronUp, Pencil, Clock } from 'lucide-react'
 import EditRecurringTaskModal from './EditRecurringTaskModal'
 
 interface Props {
@@ -157,9 +154,29 @@ export default function RecurringTaskItem({ task, userId, onLog, onDelete, onUpd
                 </span>
                 {!isExpired && (
                   <span style={{ fontSize: '11px', color }}>{task.daysRemaining}d restantes</span>
+
+            
                 )}
               </div>
             </div>
+
+            {/* HORARIOS DE NOTIFICACIÓN */}
+                  {Array.isArray(task.notification_times) && task.notification_times.length > 0 && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
+                      <Clock size={10} color="var(--cyan)" />
+                      {task.notification_times
+                        .slice().sort((a: string, b: string) => a.localeCompare(b))
+                        .map((t: string, i: number) => (
+                          <span key={i} style={{
+                            fontSize: '10px', fontFamily: 'var(--font-mono)',
+                            color: 'var(--cyan)', background: '#00F5FF10',
+                            border: '1px solid #00F5FF22',
+                            padding: '1px 6px', borderRadius: '10px',
+                          }}>{t}</span>
+                        ))
+                      }
+                    </div>
+                  )}
 
             {/* ACCIONES */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>

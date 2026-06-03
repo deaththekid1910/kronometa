@@ -122,6 +122,43 @@ export default function PushNotificationSetup() {
   }
 }
 
+// Verifica también horarios de tareas recurrentes individuales
+const { data: recurringTasks } = await supabase
+  .from('recurring_tasks')
+  .select('id, title, notification_times, goal_id')
+  .eq('user_id', user.id)
+  .eq('archived', false)
+  .gte('deadline', new Date().toISOString().split('T')[0])
+
+for (const rt of recurringTasks || []) {
+  const rtTimes: string[] = Array.isArray(rt.notification_times)
+    ? rt.notification_times
+    : ['09:00']
+
+  for (const t of rtTimes) {
+    const tKey = `rt_${rt.id}_${t}`
+    if (matchesScheduledTime(t) && !alreadyNotifiedToday(tKey)) {
+      markNotified(tKey)
+      playReminderSound()
+
+      if (Notification.permission === 'granted') {
+        try {
+          const n = new Notification(`KronoMeta · 🔄 Tarea recurrente`, {
+            body:   `"${rt.title}" · pendiente de hoy`,
+            icon:   '/icons/icon-192x192.png',
+            badge:  '/icons/icon-72x72.png',
+            tag:    `rt-${rt.id}-${t}`,
+            silent: true,
+          })
+          n.onclick = () => { window.focus(); window.location.href = `/goals/${rt.goal_id}`; n.close() }
+          setTimeout(() => n.close(), 8000)
+        } catch {}
+      }
+      break
+    }
+  }
+}
+
   async function runNotification(
     userId: string,
     config: any,

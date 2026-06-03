@@ -9,6 +9,7 @@ export interface RecurringTask {
   deadline: string
   color: string
   archived: boolean
+  notification_times: string[]
   created_at: string
 }
 

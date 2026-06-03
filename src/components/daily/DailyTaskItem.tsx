@@ -5,6 +5,8 @@ import { DailyTask } from '@/types/dailyTask'
 import { createClient } from '@/lib/supabase'
 import { formatTaskDate } from '@/lib/dailyTasks'
 import { playCompleteSound } from '@/lib/notificationSound'
+import { DAILY_TASK_XP } from '@/lib/gamification'
+import { useXPStore } from '@/store/xpStore'
 import { Check, Clock, Pencil, Trash2, RotateCcw, CalendarClock } from 'lucide-react'
 import EditDailyTaskModal from './EditDailyTaskModal'
 
@@ -25,6 +27,7 @@ export default function DailyTaskItem({
   const [loading,    setLoading]    = useState(false)
   const [confirmDel, setConfirmDel] = useState(false)
   const [showEdit,   setShowEdit]   = useState(false)
+  const { addXP } = useXPStore()
   const done = !!task.completed_at
 
   async function toggleComplete() {
@@ -34,8 +37,10 @@ export default function DailyTaskItem({
     const newVal = done ? null : new Date().toISOString()
     await supabase.from('daily_tasks').update({ completed_at: newVal }).eq('id', task.id)
     if (done) {
+      addXP(-DAILY_TASK_XP)
       onUncomplete(task.id)
     } else {
+      addXP(DAILY_TASK_XP)
       playCompleteSound()
       onComplete(task.id)
     }
@@ -46,6 +51,7 @@ export default function DailyTaskItem({
     setLoading(true)
     const supabase = createClient()
     await supabase.from('daily_tasks').delete().eq('id', task.id)
+    if (done) addXP(-DAILY_TASK_XP) // recupera el XP de una tarea ya completada
     onDelete(task.id)
     setLoading(false)
   }
@@ -108,6 +114,11 @@ export default function DailyTaskItem({
               }}>
                 <Clock size={11} />
                 {task.reminder_time.slice(0, 5)}
+              </span>
+            )}
+            {done && (
+              <span style={{ fontSize: '11px', color, fontFamily: 'var(--font-mono)' }}>
+                +{DAILY_TASK_XP} XP
               </span>
             )}
             {overdue && (

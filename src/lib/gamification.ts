@@ -60,6 +60,9 @@ export function getLevelInfo(totalXP: number): LevelInfo {
   return { level, xp: totalXP, xpForNext, xpInLevel, progress, title: LEVEL_TITLES[titleIndex] }
 }
 
+// XP otorgado por cada tarea diaria completada
+export const DAILY_TASK_XP = 15
+
 export async function getUserXP(userId: string): Promise<number> {
   const supabase = createClient()
   const { data: avatar } = await supabase
@@ -67,8 +70,19 @@ export async function getUserXP(userId: string): Promise<number> {
     .select('xp_total')
     .eq('user_id', userId)
 
-  if (!avatar || avatar.length === 0) return 0
-  return avatar.reduce((sum, a) => sum + (a.xp_total || 0), 0)
+  let total = (avatar || []).reduce((sum, a) => sum + (a.xp_total || 0), 0)
+
+  // XP derivado de las tareas diarias completadas (persistente sin avatar_state).
+  // Si la tabla aún no existe, count queda nulo y no afecta el total.
+  const { count } = await supabase
+    .from('daily_tasks')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .not('completed_at', 'is', null)
+
+  total += (count || 0) * DAILY_TASK_XP
+
+  return total
 }
 
 export async function awardXP(userId: string, goalId: string, amount: number): Promise<number> {

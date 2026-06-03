@@ -10,6 +10,7 @@ export interface RecurringTask {
   color: string
   archived: boolean
   notification_times: string[]
+  order_index: number
   created_at: string
 }
 

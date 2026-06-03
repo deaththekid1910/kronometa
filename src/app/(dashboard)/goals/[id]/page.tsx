@@ -33,6 +33,10 @@ export default function GoalDetailPage() {
   const [recurringTasks, setRecurringTasks] = useState<RecurringTaskWithLogs[]>([])
   const [showRecurModal, setShowRecurModal] = useState(false)
   const [userId,         setUserId]         = useState('')
+  const [dragSgIdx,      setDragSgIdx]      = useState<number | null>(null)
+  const [dropSgIdx,      setDropSgIdx]      = useState<number | null>(null)
+  const [dragRtIdx,      setDragRtIdx]      = useState<number | null>(null)
+  const [dropRtIdx,      setDropRtIdx]      = useState<number | null>(null)
 
   useEffect(() => { loadGoal() }, [id])
 
@@ -62,6 +66,7 @@ export default function GoalDetailPage() {
       .select('*')
       .eq('goal_id', id)
       .eq('archived', false)
+      .order('order_index', { ascending: true, nullsFirst: true })
       .order('created_at', { ascending: true })
 
     if (tasks) {
@@ -178,6 +183,38 @@ export default function GoalDetailPage() {
 
   function handleDeleteRecurring(taskId: string) {
     setRecurringTasks(prev => prev.filter(t => t.id !== taskId))
+  }
+
+  async function handleDropSubGoals() {
+    if (dragSgIdx === null || dropSgIdx === null || dragSgIdx === dropSgIdx) {
+      setDragSgIdx(null); setDropSgIdx(null); return
+    }
+    const reordered = [...subGoals]
+    const [moved] = reordered.splice(dragSgIdx, 1)
+    reordered.splice(dropSgIdx, 0, moved)
+    const updated = reordered.map((sg, i) => ({ ...sg, order_index: i }))
+    setSubGoals(updated)
+    setDragSgIdx(null); setDropSgIdx(null)
+    const supabase = createClient()
+    await Promise.all(updated.map(sg =>
+      supabase.from('sub_goals').update({ order_index: sg.order_index }).eq('id', sg.id)
+    ))
+  }
+
+  async function handleDropRecurring() {
+    if (dragRtIdx === null || dropRtIdx === null || dragRtIdx === dropRtIdx) {
+      setDragRtIdx(null); setDropRtIdx(null); return
+    }
+    const reordered = [...recurringTasks]
+    const [moved] = reordered.splice(dragRtIdx, 1)
+    reordered.splice(dropRtIdx, 0, moved)
+    const updated = reordered.map((t, i) => ({ ...t, order_index: i }))
+    setRecurringTasks(updated)
+    setDragRtIdx(null); setDropRtIdx(null)
+    const supabase = createClient()
+    await Promise.all(updated.map(t =>
+      supabase.from('recurring_tasks').update({ order_index: t.order_index }).eq('id', t.id)
+    ))
   }
 
   // ── Meta ──────────────────────────────────────────────
@@ -417,6 +454,12 @@ export default function GoalDetailPage() {
                 onUncomplete={handleUncomplete}
                 onUpdate={handleUpdate}
                 onDelete={handleDeleteSubGoal}
+                isDragging={dragSgIdx === i}
+                isDragOver={dropSgIdx === i && dragSgIdx !== i}
+                onDragStart={() => setDragSgIdx(i)}
+                onDragOver={() => setDropSgIdx(i)}
+                onDrop={handleDropSubGoals}
+                onDragEnd={() => { setDragSgIdx(null); setDropSgIdx(null) }}
               />
             ))}
           </div>
@@ -472,7 +515,7 @@ export default function GoalDetailPage() {
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {recurringTasks.map(task => (
+              {recurringTasks.map((task, i) => (
                 <RecurringTaskItem
                   key={task.id}
                   task={task}
@@ -482,6 +525,12 @@ export default function GoalDetailPage() {
                   onUpdate={(updated) => setRecurringTasks(prev =>
                     prev.map(t => t.id === updated.id ? { ...t, ...updated } : t)
                   )}
+                  isDragging={dragRtIdx === i}
+                  isDragOver={dropRtIdx === i && dragRtIdx !== i}
+                  onDragStart={() => setDragRtIdx(i)}
+                  onDragOver={() => setDropRtIdx(i)}
+                  onDrop={handleDropRecurring}
+                  onDragEnd={() => { setDragRtIdx(null); setDropRtIdx(null) }}
                 />
               ))}
             </div>
@@ -519,6 +568,7 @@ export default function GoalDetailPage() {
             goalId={goal.id}
             userId={userId}
             color={accent}
+            currentCount={recurringTasks.length}
             onAdd={handleAddRecurring}
             onClose={() => setShowRecurModal(false)}
           />

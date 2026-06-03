@@ -3,18 +3,27 @@
 import { useState } from 'react'
 import { RecurringTask, RecurringTaskWithLogs } from '@/types/recurring'
 import { createClient } from '@/lib/supabase'
-import { Repeat2, Calendar, Flame, Check, Trash2, ChevronDown, ChevronUp, Pencil, Clock } from 'lucide-react'
+import { Repeat2, Calendar, Flame, Check, Trash2, ChevronDown, ChevronUp, Pencil, Clock, GripVertical } from 'lucide-react'
 import EditRecurringTaskModal from './EditRecurringTaskModal'
 
 interface Props {
   task: RecurringTaskWithLogs
   userId: string
-  onLog:    (taskId: string) => void
-  onDelete: (taskId: string) => void
-  onUpdate: (updated: RecurringTask) => void
+  onLog:       (taskId: string) => void
+  onDelete:    (taskId: string) => void
+  onUpdate:    (updated: RecurringTask) => void
+  isDragging?: boolean
+  isDragOver?: boolean
+  onDragStart?: () => void
+  onDragOver?:  () => void
+  onDrop?:      () => void
+  onDragEnd?:   () => void
 }
 
-export default function RecurringTaskItem({ task, userId, onLog, onDelete, onUpdate }: Props) {
+export default function RecurringTaskItem({
+  task, userId, onLog, onDelete, onUpdate,
+  isDragging, isDragOver, onDragStart, onDragOver, onDrop, onDragEnd,
+}: Props) {
   const [logging,    setLogging]    = useState(false)
   const [expanded,   setExpanded]   = useState(false)
   const [confirmDel, setConfirmDel] = useState(false)
@@ -58,13 +67,21 @@ export default function RecurringTaskItem({ task, userId, onLog, onDelete, onUpd
 
   return (
     <>
-      <div style={{
-        background: 'var(--surface)',
-        border: `1px solid ${doneToday ? color + '44' : 'var(--border)'}`,
-        borderRadius: 'var(--radius-md)', overflow: 'hidden',
-        transition: 'all 0.3s',
-        opacity: isExpired && !doneToday ? 0.7 : 1,
-      }}>
+      <div
+        draggable
+        onDragStart={onDragStart}
+        onDragOver={e => { e.preventDefault(); onDragOver?.() }}
+        onDrop={onDrop}
+        onDragEnd={onDragEnd}
+        style={{
+          background: 'var(--surface)',
+          border: `1px solid ${isDragOver ? color : doneToday ? color + '44' : 'var(--border)'}`,
+          borderRadius: 'var(--radius-md)', overflow: 'hidden',
+          transition: 'all 0.2s',
+          opacity: isDragging ? 0.35 : (isExpired && !doneToday ? 0.7 : 1),
+          boxShadow: isDragOver ? `0 0 0 1px ${color}55, 0 6px 20px ${color}18` : 'none',
+          cursor: isDragging ? 'grabbing' : 'grab',
+        }}>
 
         {/* BARRA PROGRESO */}
         <div style={{ height: '2px', background: 'var(--border)' }}>
@@ -77,6 +94,15 @@ export default function RecurringTaskItem({ task, userId, onLog, onDelete, onUpd
 
         <div style={{ padding: '14px 16px' }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+
+            {/* GRIP */}
+            <div style={{
+              display: 'flex', alignItems: 'center', flexShrink: 0,
+              color: 'var(--dim)', marginTop: '8px', opacity: 0.35,
+              pointerEvents: 'none',
+            }}>
+              <GripVertical size={14} />
+            </div>
 
             {/* BOTÓN MARCAR */}
             <button

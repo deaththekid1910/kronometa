@@ -5,7 +5,7 @@ import { SubGoal } from '@/types'
 import { createClient } from '@/lib/supabase'
 import { awardXP, checkAndUnlockAchievements } from '@/lib/gamification'
 import { useXPStore } from '@/store/xpStore'
-import { Check, Calendar, ChevronRight, RotateCcw, Pencil, Trash2 } from 'lucide-react'
+import { Check, Calendar, ChevronRight, RotateCcw, Pencil, Trash2, GripVertical } from 'lucide-react'
 import { playCompleteSound } from '@/lib/notificationSound'
 import EditSubGoalModal from './EditSubGoalModal'
 
@@ -17,11 +17,18 @@ interface Props {
   onUncomplete: (id: string) => void
   onUpdate:     (updated: SubGoal) => void
   onDelete:     (id: string) => void
+  isDragging?:  boolean
+  isDragOver?:  boolean
+  onDragStart?: () => void
+  onDragOver?:  () => void
+  onDrop?:      () => void
+  onDragEnd?:   () => void
 }
 
 export default function SubGoalItem({
   subGoal, index, color,
-  onComplete, onUncomplete, onUpdate, onDelete
+  onComplete, onUncomplete, onUpdate, onDelete,
+  isDragging, isDragOver, onDragStart, onDragOver, onDrop, onDragEnd,
 }: Props) {
   const [loading,      setLoading]      = useState(false)
   const [confirmUndo,  setConfirmUndo]  = useState(false)
@@ -109,14 +116,31 @@ export default function SubGoalItem({
 
   return (
     <>
-      <div style={{
-        display: 'flex', alignItems: 'flex-start', gap: '12px',
-        padding: '14px 16px', borderRadius: 'var(--radius-md)',
-        background: done ? `${color}08` : 'var(--surface)',
-        border: `1px solid ${done ? color + '30' : 'var(--border)'}`,
-        transition: 'all 0.3s ease',
-        opacity: done ? 0.8 : 1,
-      }}>
+      <div
+        draggable
+        onDragStart={onDragStart}
+        onDragOver={e => { e.preventDefault(); onDragOver?.() }}
+        onDrop={onDrop}
+        onDragEnd={onDragEnd}
+        style={{
+          display: 'flex', alignItems: 'flex-start', gap: '12px',
+          padding: '14px 16px', borderRadius: 'var(--radius-md)',
+          background: done ? `${color}08` : 'var(--surface)',
+          border: `1px solid ${isDragOver ? color : done ? color + '30' : 'var(--border)'}`,
+          transition: 'all 0.2s ease',
+          opacity: isDragging ? 0.35 : (done ? 0.8 : 1),
+          boxShadow: isDragOver ? `0 0 0 1px ${color}55, 0 6px 20px ${color}18` : 'none',
+          cursor: isDragging ? 'grabbing' : 'grab',
+        }}>
+
+        {/* GRIP */}
+        <div style={{
+          display: 'flex', alignItems: 'center', flexShrink: 0,
+          color: 'var(--dim)', marginTop: '3px', opacity: 0.35,
+          pointerEvents: 'none',
+        }}>
+          <GripVertical size={14} />
+        </div>
 
         {/* CHECKBOX */}
         <button

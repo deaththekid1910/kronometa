@@ -10,11 +10,12 @@ interface Props {
   goalId: string
   userId: string
   color: string
+  currentCount: number
   onAdd: (task: RecurringTask) => void
   onClose: () => void
 }
 
-export default function AddRecurringTaskModal({ goalId, userId, color, onAdd, onClose }: Props) {
+export default function AddRecurringTaskModal({ goalId, userId, color, currentCount, onAdd, onClose }: Props) {
   const [title,             setTitle]             = useState('')
   const [description,       setDescription]       = useState('')
   const [frequency,         setFrequency]         = useState<'daily' | 'weekly'>('daily')
@@ -53,6 +54,7 @@ export default function AddRecurringTaskModal({ goalId, userId, color, onAdd, on
         deadline,
         color,
         notification_times: notifTimes,
+        order_index:        currentCount,
       })
       .select()
       .single()

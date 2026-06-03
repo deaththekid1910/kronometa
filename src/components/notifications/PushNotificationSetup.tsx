@@ -87,33 +87,40 @@ export default function PushNotificationSetup() {
   }
 
   async function checkSchedule() {
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return
 
-    const { data: config } = await supabase
-      .from('notification_settings')
-      .select('*')
-      .eq('user_id', user.id)
-      .single()
+  const { data: config } = await supabase
+    .from('notification_settings')
+    .select('*')
+    .eq('user_id', user.id)
+    .single()
 
-    // Notificaciones deshabilitadas
-    if (!config || !config.enabled) return
+  if (!config || !config.enabled || !config.daily_reminder) return
 
-    const scheduledTime = (config.daily_reminder_time || '09:00').slice(0, 5)
-
-    // Solo notifica si el recordatorio diario está activo
-    if (!config.daily_reminder) return
-
-    // Verifica si ahora coincide con la hora programada
-    if (!matchesScheduledTime(scheduledTime)) return
-
-    // Verifica si ya se notificó hoy a esta hora
-    if (alreadyNotifiedToday(scheduledTime)) return
-
-    // Ejecuta la notificación
-    await runNotification(user.id, config, scheduledTime)
+  // Lee múltiples horarios
+  let times: { id: string; time: string }[] = []
+  try {
+    const raw = config.daily_reminder_time
+    if (raw && raw.startsWith('[')) {
+      times = JSON.parse(raw)
+    } else if (raw) {
+      times = [{ id: '1', time: raw.slice(0, 5) }]
+    }
+  } catch {
+    times = [{ id: '1', time: '09:00' }]
   }
+
+  // Verifica cada horario configurado
+  for (const t of times) {
+    const scheduledTime = t.time.slice(0, 5)
+    if (matchesScheduledTime(scheduledTime) && !alreadyNotifiedToday(scheduledTime)) {
+      await runNotification(user.id, config, scheduledTime)
+      break // Solo una notificación por ciclo de verificación
+    }
+  }
+}
 
   async function runNotification(
     userId: string,

@@ -66,7 +66,6 @@ export default function GoalDetailPage() {
       .select('*')
       .eq('goal_id', id)
       .eq('archived', false)
-      .order('order_index', { ascending: true, nullsFirst: true })
       .order('created_at', { ascending: true })
 
     if (tasks) {
@@ -113,6 +112,7 @@ export default function GoalDetailPage() {
         }
       })
 
+      enriched.sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0))
       setRecurringTasks(enriched)
     }
 

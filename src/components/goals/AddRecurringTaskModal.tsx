@@ -42,22 +42,34 @@ export default function AddRecurringTaskModal({ goalId, userId, color, currentCo
     if (!title.trim() || !deadline) return
     setLoading(true)
     const supabase = createClient()
-    const { data } = await supabase
+
+    const base = {
+      goal_id:            goalId,
+      user_id:            userId,
+      title:              title.trim(),
+      description:        description.trim() || null,
+      frequency,
+      target_count:       targetCount,
+      deadline,
+      color,
+      notification_times: notifTimes,
+    }
+
+    // Intenta incluir order_index; si la columna aún no existe, reintenta sin ella
+    let { data } = await supabase
       .from('recurring_tasks')
-      .insert({
-        goal_id:            goalId,
-        user_id:            userId,
-        title:              title.trim(),
-        description:        description.trim() || null,
-        frequency,
-        target_count:       targetCount,
-        deadline,
-        color,
-        notification_times: notifTimes,
-        order_index:        currentCount,
-      })
+      .insert({ ...base, order_index: currentCount })
       .select()
       .single()
+
+    if (!data) {
+      const retry = await supabase
+        .from('recurring_tasks')
+        .insert(base)
+        .select()
+        .single()
+      data = retry.data
+    }
 
     if (data) onAdd(data)
     setLoading(false)

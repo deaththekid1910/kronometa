@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { fetchNotifications } from '@/lib/notifications'
+import { localToday } from '@/lib/dailyTasks'
 import { useNotificationStore } from '@/store/notificationStore'
 import {
   playNotificationSound,
@@ -200,6 +201,34 @@ export default function PushNotificationSetup() {
             })
             break
           }
+        }
+      }
+    }
+
+    // ── 3. TAREAS DIARIAS — recordatorio con hora propia (zona horaria local) ──
+    if (!config || config.enabled !== false) {
+      const { data: dailyTasks } = await supabase
+        .from('daily_tasks')
+        .select('id, title, reminder_time')
+        .eq('user_id', user.id)
+        .eq('task_date', localToday())
+        .is('completed_at', null)
+        .not('reminder_time', 'is', null)
+
+      for (const dt of dailyTasks || []) {
+        const scheduledTime = (dt.reminder_time || '').slice(0, 5)
+        if (!scheduledTime) continue
+        const tKey = `dt_${dt.id}_${scheduledTime}`
+        if (matchesScheduledTime(scheduledTime) && !alreadyNotifiedToday(tKey)) {
+          markNotified(tKey)
+          playReminderSound()
+          await showAppNotification('KronoMeta · ✅ Tarea diaria', {
+            body:   `"${dt.title}" · es hora`,
+            icon:   '/icons/icon-192x192.png',
+            badge:  '/icons/icon-72x72.png',
+            tag:    `dt-${dt.id}-${scheduledTime}`,
+            url:    '/daily',
+          })
         }
       }
     }

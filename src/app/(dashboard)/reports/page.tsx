@@ -11,6 +11,7 @@ import TimeByGoalChart       from '@/components/reports/TimeByGoalChart'
 import WeeklyActivityChart   from '@/components/reports/WeeklyActivityChart'
 import HabitConsistencyChart from '@/components/reports/HabitConsistencyChart'
 import CandlestickChart      from '@/components/reports/CandlestickChart'
+import DateHistorySection    from '@/components/reports/DateHistorySection'
 import { BarChart2, RefreshCw, PieChart, Activity, Zap } from 'lucide-react'
 import Button from '@/components/ui/Button'
 
@@ -121,6 +122,9 @@ export default function ReportsPage() {
           </div>
         ))}
       </div>
+
+      {/* HISTORIAL POR FECHA */}
+      <DateHistorySection isMobile={isMobile} />
 
       {/* GRÁFICAS */}
       {loading ? (

@@ -1,11 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useGoalsStore } from '@/store/goalsStore'
 import { GoalType } from '@/types'
-
-const COLORS = ['#7F77DD', '#34d399', '#f59e0b', '#f87171', '#60a5fa', '#a78bfa', '#fb7185']
+import ColorPicker, { firstUnusedColor, PRESET_COLORS } from '@/components/ui/ColorPicker'
 
 interface Props {
   onClose: () => void
@@ -14,10 +13,29 @@ interface Props {
 export default function CreateGoalModal({ onClose }: Props) {
   const [title, setTitle] = useState('')
   const [type, setType] = useState<GoalType>('goal')
-  const [color, setColor] = useState('#7F77DD')
+  const [color, setColor] = useState(PRESET_COLORS[0])
+  const [usedColors, setUsedColors] = useState<string[]>([])
   const [deadline, setDeadline] = useState('')
   const [loading, setLoading] = useState(false)
   const { addGoal } = useGoalsStore()
+
+  // Carga los colores ya usados por otras metas/hábitos para no repetir y
+  // preseleccionar uno libre por defecto.
+  useEffect(() => {
+    (async () => {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const { data } = await supabase
+        .from('goals')
+        .select('color')
+        .eq('user_id', user.id)
+        .eq('archived', false)
+      const used = (data || []).map(g => g.color).filter(Boolean)
+      setUsedColors(used)
+      setColor(firstUnusedColor(used))
+    })()
+  }, [])
 
   async function handleCreate() {
     if (!title.trim()) return
@@ -100,18 +118,12 @@ export default function CreateGoalModal({ onClose }: Props) {
         </div>
 
         <div style={{ marginBottom: '1rem' }}>
-          <label style={{ color: '#9ca3af', fontSize: '12px', display: 'block', marginBottom: '8px' }}>Color</label>
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-            {COLORS.map(c => (
-              <div key={c} onClick={() => setColor(c)} style={{
-                width: '28px', height: '28px', borderRadius: '50%',
-                background: c, cursor: 'pointer',
-                border: color === c ? '2px solid #fff' : '2px solid transparent',
-                transition: 'transform 0.15s',
-                transform: color === c ? 'scale(1.2)' : 'scale(1)'
-              }} />
-            ))}
-          </div>
+          <label style={{ color: '#9ca3af', fontSize: '12px', display: 'block', marginBottom: '8px' }}>
+            Color {usedColors.length > 0 && (
+              <span style={{ color: '#6b7280', fontSize: '11px' }}>· los marcados ya están en uso</span>
+            )}
+          </label>
+          <ColorPicker value={color} onChange={setColor} usedColors={usedColors} />
         </div>
 
         {type === 'goal' && (

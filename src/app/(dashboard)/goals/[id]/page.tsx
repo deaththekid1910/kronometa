@@ -11,6 +11,7 @@ import AddSubGoalModal from '@/components/goals/AddSubGoalModal'
 import RecurringTaskItem from '@/components/goals/RecurringTaskItem'
 import AddRecurringTaskModal from '@/components/goals/AddRecurringTaskModal'
 import TimerWidget from '@/components/timer/TimerWidget'
+import ColorEditButton from '@/components/goals/ColorEditButton'
 import Badge from '@/components/ui/Badge'
 import Button from '@/components/ui/Button'
 import { getTotalSeconds, formatTime } from '@/lib/timer'
@@ -291,6 +292,12 @@ export default function GoalDetailPage() {
         </div>
 
         <TimerWidget goalId={goal.id} color={accent} />
+
+        <ColorEditButton
+          goalId={goal.id}
+          color={accent}
+          onSaved={c => setGoal(g => g ? { ...g, color: c } : g)}
+        />
 
         <button
           onClick={() => setConfirmDel(true)}

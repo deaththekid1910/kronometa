@@ -7,6 +7,7 @@ import { GoalWithStats } from '@/types'
 import HabitStreak from '@/components/habits/HabitStreak'
 import HabitLogModal from '@/components/habits/HabitLogModal'
 import TimerWidget from '@/components/timer/TimerWidget'
+import ColorEditButton from '@/components/goals/ColorEditButton'
 import Button from '@/components/ui/Button'
 import Badge from '@/components/ui/Badge'
 import { getTotalSeconds, formatTime } from '@/lib/timer'
@@ -128,6 +129,12 @@ export default function HabitDetailPage() {
           </div>
         </div>
         <TimerWidget goalId={habit.id} color={accent} />
+
+        <ColorEditButton
+          goalId={habit.id}
+          color={accent}
+          onSaved={c => setHabit(h => h ? { ...h, color: c } : h)}
+        />
 
         {/* BOTÓN ELIMINAR */}
         <button

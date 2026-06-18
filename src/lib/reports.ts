@@ -86,6 +86,46 @@ export async function getWeeklyActivity(userId: string): Promise<DayActivity[]> 
   return days
 }
 
+export interface DateHistoryItem {
+  id: string
+  title: string
+  color: string
+  type: string
+  totalSeconds: number
+  sessions: number
+}
+
+// Reporte del tiempo dedicado a cada meta/hábito en UNA fecha concreta
+// (fecha local del usuario, 'YYYY-MM-DD'). Cada ítem es independiente.
+export async function getHistoryByDate(userId: string, date: string): Promise<DateHistoryItem[]> {
+  const supabase = createClient()
+
+  const [{ data: goals }, { data: sessions }] = await Promise.all([
+    supabase.from('goals').select('id, title, color, type').eq('user_id', userId),
+    supabase.from('timer_sessions').select('goal_id, elapsed_seconds, created_at').eq('user_id', userId),
+  ])
+
+  if (!goals) return []
+
+  const agg: Record<string, { secs: number; count: number }> = {}
+  for (const s of sessions || []) {
+    if (!s.created_at) continue
+    // Fecha local de la sesión (no UTC) para que caiga en el día correcto
+    const d = new Date(s.created_at)
+    const localDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    if (localDate !== date) continue
+    const a = agg[s.goal_id] || { secs: 0, count: 0 }
+    a.secs += s.elapsed_seconds || 0
+    a.count += 1
+    agg[s.goal_id] = a
+  }
+
+  return goals
+    .filter(g => agg[g.id] && agg[g.id].secs > 0)
+    .map(g => ({ ...g, totalSeconds: agg[g.id].secs, sessions: agg[g.id].count }))
+    .sort((a, b) => b.totalSeconds - a.totalSeconds)
+}
+
 export async function getHabitConsistency(userId: string): Promise<HabitConsistency[]> {
   const supabase = createClient()
   const totalDays = 30

@@ -233,32 +233,51 @@ export default function PushNotificationSetup() {
       }
     }
 
-    // ── 4. HORARIO — bloques recurrentes que aplican hoy a su hora de inicio ──
+    // ── 4. HORARIO — bloques recurrentes que aplican hoy: avisa al INICIAR y al TERMINAR ──
     if (!config || config.enabled !== false) {
       const dow = new Date().getDay() // 0=Domingo ... 6=Sábado
 
       const { data: scheduleBlocks } = await supabase
         .from('schedule_blocks')
-        .select('id, title, start_time, days_of_week, notify, active')
+        .select('id, title, start_time, end_time, days_of_week, notify, active')
         .eq('user_id', user.id)
         .eq('active', true)
         .eq('notify', true)
         .contains('days_of_week', [dow])
 
       for (const sb of scheduleBlocks || []) {
-        const scheduledTime = (sb.start_time || '').slice(0, 5)
-        if (!scheduledTime) continue
-        const tKey = `sb_${sb.id}_${scheduledTime}`
-        if (matchesScheduledTime(scheduledTime) && !alreadyNotifiedToday(tKey)) {
-          markNotified(tKey)
-          playUrgentSound()
-          await showAppNotification('KronoMeta · ⏰ Horario', {
-            body:   `"${sb.title}" · es hora de iniciar`,
-            icon:   '/icons/icon-192x192.png',
-            badge:  '/icons/icon-72x72.png',
-            tag:    `sb-${sb.id}-${scheduledTime}`,
-            url:    '/schedule',
-          })
+        // ── Alarma de INICIO ──
+        const startTime = (sb.start_time || '').slice(0, 5)
+        if (startTime) {
+          const startKey = `sb_${sb.id}_start_${startTime}`
+          if (matchesScheduledTime(startTime) && !alreadyNotifiedToday(startKey)) {
+            markNotified(startKey)
+            playUrgentSound()
+            await showAppNotification('KronoMeta · ⏰ Horario', {
+              body:   `"${sb.title}" · es hora de iniciar`,
+              icon:   '/icons/icon-192x192.png',
+              badge:  '/icons/icon-72x72.png',
+              tag:    `sb-${sb.id}-start-${startTime}`,
+              url:    '/schedule',
+            })
+          }
+        }
+
+        // ── Alarma de FIN (solo si tiene hora de fin) ──
+        const endTime = (sb.end_time || '').slice(0, 5)
+        if (endTime) {
+          const endKey = `sb_${sb.id}_end_${endTime}`
+          if (matchesScheduledTime(endTime) && !alreadyNotifiedToday(endKey)) {
+            markNotified(endKey)
+            playReminderSound()
+            await showAppNotification('KronoMeta · 🏁 Horario', {
+              body:   `"${sb.title}" · hora de terminar`,
+              icon:   '/icons/icon-192x192.png',
+              badge:  '/icons/icon-72x72.png',
+              tag:    `sb-${sb.id}-end-${endTime}`,
+              url:    '/schedule',
+            })
+          }
         }
       }
     }

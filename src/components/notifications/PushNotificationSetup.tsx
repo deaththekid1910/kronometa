@@ -232,6 +232,36 @@ export default function PushNotificationSetup() {
         }
       }
     }
+
+    // ── 4. HORARIO — bloques recurrentes que aplican hoy a su hora de inicio ──
+    if (!config || config.enabled !== false) {
+      const dow = new Date().getDay() // 0=Domingo ... 6=Sábado
+
+      const { data: scheduleBlocks } = await supabase
+        .from('schedule_blocks')
+        .select('id, title, start_time, days_of_week, notify, active')
+        .eq('user_id', user.id)
+        .eq('active', true)
+        .eq('notify', true)
+        .contains('days_of_week', [dow])
+
+      for (const sb of scheduleBlocks || []) {
+        const scheduledTime = (sb.start_time || '').slice(0, 5)
+        if (!scheduledTime) continue
+        const tKey = `sb_${sb.id}_${scheduledTime}`
+        if (matchesScheduledTime(scheduledTime) && !alreadyNotifiedToday(tKey)) {
+          markNotified(tKey)
+          playUrgentSound()
+          await showAppNotification('KronoMeta · ⏰ Horario', {
+            body:   `"${sb.title}" · es hora de iniciar`,
+            icon:   '/icons/icon-192x192.png',
+            badge:  '/icons/icon-72x72.png',
+            tag:    `sb-${sb.id}-${scheduledTime}`,
+            url:    '/schedule',
+          })
+        }
+      }
+    }
   }
 
   async function runNotification(

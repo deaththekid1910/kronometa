@@ -7,11 +7,12 @@ import { createClient } from '@/lib/supabase'
 import { useXPStore } from '@/store/xpStore'
 import { getUserXP } from '@/lib/gamification'
 import NotificationBell from '@/components/notifications/NotificationBell'
-import { LayoutDashboard, Target, Repeat2, BarChart2, Trophy, Globe, BookOpen, Settings, LogOut, Hexagon, X, Menu, ListChecks } from 'lucide-react'
+import { LayoutDashboard, Target, Repeat2, BarChart2, Trophy, Globe, BookOpen, Settings, LogOut, Hexagon, X, Menu, ListChecks, CalendarClock } from 'lucide-react'
 
 const navLinks = [
   { href: '/dashboard',    icon: LayoutDashboard, label: 'Dashboard' },
   { href: '/daily',        icon: ListChecks,      label: 'Diarias' },
+  { href: '/schedule',     icon: CalendarClock,   label: 'Horario' },
   { href: '/goals',        icon: Target,          label: 'Metas' },
   { href: '/habits',       icon: Repeat2,         label: 'Hábitos' },
   { href: '/world',        icon: Globe,           label: 'Mundo' },

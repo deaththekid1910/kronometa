@@ -23,36 +23,18 @@ export function formatTime(totalSeconds: number): string {
 export async function startTimer(goalId: string, userId: string): Promise<TimerSession | null> {
   const supabase = createClient()
 
+  // Cerramos cualquier sesión activa previa (solo puede haber una a la vez).
   await supabase
     .from('timer_sessions')
     .update({ is_active: false, ended_at: new Date().toISOString() })
     .eq('user_id', userId)
     .eq('is_active', true)
 
-  const existingSession = await supabase
-    .from('timer_sessions')
-    .select('*')
-    .eq('goal_id', goalId)
-    .eq('user_id', userId)
-    .eq('is_active', false)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .single()
-
-  if (existingSession.data) {
-    const { data } = await supabase
-      .from('timer_sessions')
-      .update({
-        is_active: true,
-        started_at: new Date().toISOString(),
-        ended_at: null
-      })
-      .eq('id', existingSession.data.id)
-      .select()
-      .single()
-    return data
-  }
-
+  // Cada inicio crea SIEMPRE su propia fila con su fecha real (created_at).
+  // Así el historial diario por meta/hábito es siempre correcto: cada sesión
+  // queda fechada en el día en que ocurrió y los totales se suman sobre todas
+  // las filas de la meta. (No reutilizamos filas viejas, que tenían created_at
+  // congelado y rompían el desglose por día.)
   const { data } = await supabase
     .from('timer_sessions')
     .insert({

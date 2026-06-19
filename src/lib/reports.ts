@@ -126,6 +126,67 @@ export async function getHistoryByDate(userId: string, date: string): Promise<Da
     .sort((a, b) => b.totalSeconds - a.totalSeconds)
 }
 
+export interface DayBreakdown {
+  date: string          // 'YYYY-MM-DD' (fecha local)
+  totalSeconds: number
+  items: DateHistoryItem[]
+}
+
+// Historial diario: para los últimos `days` días devuelve, por cada día con
+// actividad, el desglose del tiempo dedicado a cada meta/hábito. Ordenado del
+// día más reciente al más antiguo.
+export async function getDailyHistory(userId: string, days = 30): Promise<DayBreakdown[]> {
+  const supabase = createClient()
+
+  const since = new Date()
+  since.setHours(0, 0, 0, 0)
+  since.setDate(since.getDate() - (days - 1))
+
+  const [{ data: goals }, { data: sessions }] = await Promise.all([
+    supabase.from('goals').select('id, title, color, type').eq('user_id', userId),
+    supabase.from('timer_sessions')
+      .select('goal_id, elapsed_seconds, created_at, started_at, is_active')
+      .eq('user_id', userId)
+      .gte('created_at', since.toISOString()),
+  ])
+
+  if (!goals) return []
+  const goalMap = new Map(goals.map(g => [g.id, g]))
+
+  // date -> goalId -> { secs, count }
+  const byDate: Record<string, Record<string, { secs: number; count: number }>> = {}
+  for (const s of sessions || []) {
+    if (!s.created_at || !goalMap.has(s.goal_id)) continue
+    // El tiempo de la sesión en curso se cuenta en vivo (igual que en los totales)
+    let secs = s.elapsed_seconds || 0
+    if (s.is_active && s.started_at) {
+      secs += Math.floor((Date.now() - new Date(s.started_at).getTime()) / 1000)
+    }
+    if (secs <= 0) continue
+    const d = new Date(s.created_at)
+    const localDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    const day = byDate[localDate] || (byDate[localDate] = {})
+    const a = day[s.goal_id] || { secs: 0, count: 0 }
+    a.secs += secs
+    a.count += 1
+    day[s.goal_id] = a
+  }
+
+  return Object.entries(byDate)
+    .map(([date, goalsAgg]) => {
+      const items: DateHistoryItem[] = Object.entries(goalsAgg)
+        .filter(([, v]) => v.secs > 0)
+        .map(([goalId, v]) => {
+          const g = goalMap.get(goalId)!
+          return { id: g.id, title: g.title, color: g.color, type: g.type, totalSeconds: v.secs, sessions: v.count }
+        })
+        .sort((a, b) => b.totalSeconds - a.totalSeconds)
+      return { date, totalSeconds: items.reduce((acc, i) => acc + i.totalSeconds, 0), items }
+    })
+    .filter(d => d.items.length > 0)
+    .sort((a, b) => b.date.localeCompare(a.date))
+}
+
 export async function getHabitConsistency(userId: string): Promise<HabitConsistency[]> {
   const supabase = createClient()
   const totalDays = 30

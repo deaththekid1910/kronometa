@@ -148,6 +148,28 @@ input, textarea, select { font-family: var(--font-sans); }
 }
 .km-countdown-enter { animation: km-fade-scale-in 0.4s ease forwards; }
 
+@keyframes km-tick {
+  0%, 100% { transform: scale(1); }
+  50%       { transform: scale(1.15); }
+}
+
+@keyframes km-shine-sweep {
+  0%   { left: -60%; }
+  55%  { left: 130%; }
+  100% { left: 130%; }
+}
+.km-countdown-shine {
+  position: absolute; top: 0; left: -60%; width: 45%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.16), transparent);
+  transform: skewX(-20deg);
+  animation: km-shine-sweep 3.5s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@media (max-width: 480px) {
+  .km-time-block { min-width: 46px !important; padding: 6px 2px !important; }
+}
+
 /* ===================== RESPONSIVE ===================== */
 
 /* Tablet */

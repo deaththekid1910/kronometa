@@ -125,7 +125,7 @@ export default function GoalCard({ goal, onClick, onEdit, onDelete }: Props) {
             }} />
           </div>
 
-          <div style={{ position: 'relative', height: '26px' }}>
+          <div style={{ position: 'relative', height: '26px', marginBottom: '4px' }}>
             <div style={{ position: 'absolute', top: '50%', left: 0, right: 0, height: '2px', background: 'var(--border)', borderRadius: '2px', transform: 'translateY(-50%)' }}>
               <div style={{ height: '100%', width: `${avatarPct}%`, background: accent + '44', transition: 'width 0.6s ease' }} />
             </div>
@@ -158,13 +158,14 @@ export default function GoalCard({ goal, onClick, onEdit, onDelete }: Props) {
               transition: 'left 0.6s ease',
             }}>★</div>
           </div>
-
-          {goal.deadline && (
-            <div style={{ marginTop: '10px', display: 'flex', justifyContent: 'flex-end' }}>
-              <Countdown targetDate={goal.deadline} startDate={goal.created_at} color={accent} variant="compact" />
-            </div>
-          )}
         </>
+      )}
+
+      {/* COUNTDOWN — visible siempre que haya fecha límite, tenga o no submetas */}
+      {goal.type === 'goal' && goal.deadline && (
+        <div style={{ marginTop: '12px' }}>
+          <Countdown targetDate={goal.deadline} startDate={goal.created_at} color={accent} variant="card" />
+        </div>
       )}
     </div>
   )

@@ -127,6 +127,9 @@ export default function HabitDetailPage() {
             <h1 style={{ fontSize: '18px', fontWeight: 600, margin: 0 }}>{habit.title}</h1>
             <Badge color={badgeColor}>Hábito</Badge>
             {completedToday && <Badge color="green" dot>Completado hoy</Badge>}
+            {habit.reminder_time && (
+              <Badge color={badgeColor}>⏰ {habit.reminder_time.slice(0, 5)}</Badge>
+            )}
           </div>
         </div>
         <TimerWidget goalId={habit.id} color={accent} />

@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase'
 import { fetchNotifications } from '@/lib/notifications'
 import { localToday } from '@/lib/dailyTasks'
 import { useNotificationStore } from '@/store/notificationStore'
+import { showAppNotification } from '@/lib/pushNotify'
 import {
   playNotificationSound,
   playUrgentSound,
@@ -12,44 +13,23 @@ import {
   unlockAudio,
 } from '@/lib/notificationSound'
 
-// Muestra una notificación usando el service worker (obligatorio en Android/
-// Chrome móvil, donde `new Notification()` lanza error) con fallback al
-// constructor clásico en escritorio.
-async function showAppNotification(
-  title: string,
-  options: NotificationOptions & { url?: string }
-) {
-  if (typeof window === 'undefined') return
-  if (!('Notification' in window) || Notification.permission !== 'granted') return
-
-  const { url, ...rest } = options
-  try {
-    if ('serviceWorker' in navigator) {
-      const reg = await navigator.serviceWorker.ready
-      await reg.showNotification(title, { ...rest, data: { url } })
-      return
-    }
-  } catch {
-    // cae al fallback
-  }
-
-  try {
-    const n = new Notification(title, rest)
-    n.onclick = () => {
-      window.focus()
-      if (url) window.location.href = url
-      n.close()
-    }
-    setTimeout(() => n.close(), 9000)
-  } catch {}
-}
-
 // Clave en localStorage para rastrear cuándo se notificó
 const NOTIF_KEY = 'km_last_notif'
 
 interface NotifRecord {
   date: string        // YYYY-MM-DD
   times: string[]     // ['09:00', '18:00'] ya notificadas hoy
+}
+
+// Fecha "de hoy" en la zona horaria LOCAL del usuario (no UTC). Usar
+// toISOString() aquí desalinea el corte de día con localToday()/getDay(),
+// que es lo que usan las tareas diarias y el horario para decidir "hoy".
+function localDateKey(): string {
+  const now = new Date()
+  const y = now.getFullYear()
+  const m = String(now.getMonth() + 1).padStart(2, '0')
+  const d = String(now.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
 }
 
 function getRecord(): NotifRecord {
@@ -63,7 +43,7 @@ function getRecord(): NotifRecord {
 }
 
 function markNotified(time: string) {
-  const today  = new Date().toISOString().split('T')[0]
+  const today  = localDateKey()
   const record = getRecord()
   if (record.date !== today) {
     // Nuevo día — reinicia
@@ -77,7 +57,7 @@ function markNotified(time: string) {
 }
 
 function alreadyNotifiedToday(time: string): boolean {
-  const today  = new Date().toISOString().split('T')[0]
+  const today  = localDateKey()
   const record = getRecord()
   if (record.date !== today) return false
   return record.times.includes(time)
@@ -104,6 +84,11 @@ export default function PushNotificationSetup() {
       if (Notification.permission === 'default') {
         // Muestra el banner después de 5 segundos
         setTimeout(() => setShowBanner(true), 5000)
+      } else if (Notification.permission === 'denied') {
+        // Antes esto quedaba invisible: si el usuario había denegado el
+        // permiso (aquí o en otra sesión), nunca se le avisaba y las alarmas
+        // fallaban en silencio sin ninguna pista de por qué.
+        setShowBanner(true)
       }
     }
 
@@ -233,6 +218,45 @@ export default function PushNotificationSetup() {
       }
     }
 
+    // ── 3.5 HÁBITOS — recordatorio diario propio, omite si ya se marcó hoy ──
+    if (!config || config.habit_reminders !== false) {
+      const { data: habits } = await supabase
+        .from('goals')
+        .select('id, title, reminder_time')
+        .eq('user_id', user.id)
+        .eq('type', 'habit')
+        .eq('archived', false)
+        .not('reminder_time', 'is', null)
+
+      if (habits && habits.length > 0) {
+        const { data: doneToday } = await supabase
+          .from('habit_logs')
+          .select('goal_id')
+          .in('goal_id', habits.map(h => h.id))
+          .eq('logged_date', today)
+
+        const doneIds = new Set((doneToday || []).map(l => l.goal_id))
+
+        for (const h of habits) {
+          if (doneIds.has(h.id)) continue
+          const scheduledTime = (h.reminder_time || '').slice(0, 5)
+          if (!scheduledTime) continue
+          const hKey = `hab_${h.id}_${scheduledTime}`
+          if (matchesScheduledTime(scheduledTime) && !alreadyNotifiedToday(hKey)) {
+            markNotified(hKey)
+            playReminderSound()
+            await showAppNotification('KronoMeta · ↺ Hábito', {
+              body:   `"${h.title}" · es hora`,
+              icon:   '/icons/icon-192x192.png',
+              badge:  '/icons/icon-72x72.png',
+              tag:    `hab-${h.id}-${scheduledTime}`,
+              url:    `/habits/${h.id}`,
+            })
+          }
+        }
+      }
+    }
+
     // ── 4. HORARIO — bloques recurrentes que aplican hoy: avisa al INICIAR y al TERMINAR ──
     if (!config || config.enabled !== false) {
       const dow = new Date().getDay() // 0=Domingo ... 6=Sábado
@@ -333,13 +357,15 @@ export default function PushNotificationSetup() {
 
   if (!showBanner || permission === 'granted') return null
 
+  const denied = permission === 'denied'
+
   return (
     <div style={{
       position: 'fixed', bottom: '80px', left: '50%',
       transform: 'translateX(-50%)',
       zIndex: 998,
       background: '#131829',
-      border: '1px solid #FFB80044',
+      border: `1px solid ${denied ? '#FF386044' : '#FFB80044'}`,
       borderRadius: '12px',
       padding: '12px 16px',
       display: 'flex', alignItems: 'center', gap: '12px',
@@ -347,27 +373,31 @@ export default function PushNotificationSetup() {
       maxWidth: '360px', width: 'calc(100% - 32px)',
       animation: 'pwa-slide-up 0.4s ease forwards',
     }}>
-      <span style={{ fontSize: '22px', flexShrink: 0 }}>🔔</span>
+      <span style={{ fontSize: '22px', flexShrink: 0 }}>{denied ? '🔕' : '🔔'}</span>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: '13px', fontWeight: 500, color: '#F1F5F9', marginBottom: '2px' }}>
-          Activar notificaciones
+          {denied ? 'Notificaciones bloqueadas' : 'Activar notificaciones'}
         </div>
         <div style={{ fontSize: '11px', color: '#64748B' }}>
-          Recibe alertas a la hora que configures
+          {denied
+            ? 'Las alarmas no sonarán hasta que las actives en los ajustes del navegador (ícono 🔒 junto a la URL)'
+            : 'Recibe alertas a la hora que configures'}
         </div>
       </div>
-      <button
-        onClick={requestPermission}
-        style={{
-          padding: '7px 14px', borderRadius: '8px',
-          background: '#FFB800', border: 'none',
-          color: '#0A0E1A', fontSize: '12px', fontWeight: 700,
-          cursor: 'pointer', flexShrink: 0,
-          boxShadow: '0 0 12px #FFB80044',
-        }}
-      >
-        Activar
-      </button>
+      {!denied && (
+        <button
+          onClick={requestPermission}
+          style={{
+            padding: '7px 14px', borderRadius: '8px',
+            background: '#FFB800', border: 'none',
+            color: '#0A0E1A', fontSize: '12px', fontWeight: 700,
+            cursor: 'pointer', flexShrink: 0,
+            boxShadow: '0 0 12px #FFB80044',
+          }}
+        >
+          Activar
+        </button>
+      )}
       <button
         onClick={() => setShowBanner(false)}
         style={{

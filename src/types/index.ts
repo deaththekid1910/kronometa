@@ -9,6 +9,7 @@ export interface Goal {
   icon: string
   color: string
   deadline?: string
+  reminder_time?: string | null // solo hábitos: 'HH:MM', hora local del recordatorio diario
   timezone: string
   archived: boolean
   created_at: string

@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
-import { Bell, Clock, Calendar, Repeat2, Trophy, CheckCircle, Plus, X } from 'lucide-react'
+import { Bell, Clock, Calendar, Repeat2, Trophy, CheckCircle, Plus, X, Volume2 } from 'lucide-react'
 import Button from '@/components/ui/Button'
+import { showAppNotification } from '@/lib/pushNotify'
+import { playNotificationSound, unlockAudio } from '@/lib/notificationSound'
 
 interface NotifTime {
   id: string
@@ -67,6 +69,8 @@ export default function NotificationsSection({ userId }: Props) {
   const [loading,  setLoading]  = useState(true)
   const [saving,   setSaving]   = useState(false)
   const [saved,    setSaved]    = useState(false)
+  const [testing,  setTesting]  = useState(false)
+  const [testResult, setTestResult] = useState<'ok' | 'no-permission' | null>(null)
 
   useEffect(() => { loadSettings() }, [userId])
 
@@ -135,6 +139,32 @@ export default function NotificationsSection({ userId }: Props) {
 
   function update(key: keyof Settings, value: any) {
     setSettings(prev => ({ ...prev, [key]: value }))
+  }
+
+  // Dispara sonido + notificación de inmediato, sin esperar el temporizador.
+  // Este click también sirve como gesto del usuario para desbloquear el audio.
+  async function handleTest() {
+    setTesting(true)
+    setTestResult(null)
+    unlockAudio()
+    playNotificationSound()
+
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      if (Notification.permission !== 'granted') {
+        setTestResult('no-permission')
+      } else {
+        await showAppNotification('KronoMeta · 🔔 Prueba', {
+          body: 'Si ves esto y escuchaste el sonido, las alarmas funcionan.',
+          icon: '/icons/icon-192x192.png',
+          badge: '/icons/icon-72x72.png',
+          tag: 'kronometa-test',
+        })
+        setTestResult('ok')
+      }
+    } else {
+      setTestResult('no-permission')
+    }
+    setTesting(false)
   }
 
   function addTime() {
@@ -476,6 +506,48 @@ export default function NotificationsSection({ userId }: Props) {
             color="var(--amber)"
           />
         </div>
+
+        {/* ── PROBAR AHORA ── */}
+        <div style={{
+          marginTop: '16px', padding: '14px',
+          background: '#0d1120', border: '1px solid var(--border)',
+          borderRadius: 'var(--radius-md)',
+          display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: '180px' }}>
+            <div style={labelStyle('var(--cyan)')}>
+              <Volume2 size={15} color="var(--cyan)" />
+            </div>
+            <div>
+              <div style={{ fontSize: '13px', fontWeight: 500 }}>Probar alarma ahora</div>
+              <div style={{ fontSize: '11px', color: 'var(--muted)' }}>
+                Verifica sonido y notificación sin esperar la hora programada
+              </div>
+            </div>
+          </div>
+          <Button variant="secondary" size="sm" loading={testing} onClick={handleTest}>
+            Probar
+          </Button>
+        </div>
+
+        {testResult === 'ok' && (
+          <div style={{
+            marginTop: '10px', padding: '10px 14px',
+            background: '#00FF8815', border: '1px solid #00FF8833',
+            borderRadius: 'var(--radius-sm)', fontSize: '12px', color: 'var(--green)',
+          }}>
+            ✓ Sonido y notificación enviados. Si no escuchaste/viste nada, revisa el volumen del sistema y que el navegador tenga permitidas las notificaciones para este sitio.
+          </div>
+        )}
+        {testResult === 'no-permission' && (
+          <div style={{
+            marginTop: '10px', padding: '10px 14px',
+            background: '#FF386015', border: '1px solid #FF386033',
+            borderRadius: 'var(--radius-sm)', fontSize: '12px', color: 'var(--red)',
+          }}>
+            ✗ El navegador no tiene permiso para mostrar notificaciones (sonó el tono, pero la notificación visual no se mostrará). Actívalo desde el ícono 🔒/ⓘ junto a la URL del navegador.
+          </div>
+        )}
 
         {/* ── NOTA ── */}
         <div style={{

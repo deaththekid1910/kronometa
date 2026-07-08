@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase'
 import { Goal, GoalWithStats } from '@/types'
 import ColorPicker from '@/components/ui/ColorPicker'
 import Button from '@/components/ui/Button'
-import { Pencil, X } from 'lucide-react'
+import { Pencil, X, Bell } from 'lucide-react'
 
 interface Props {
   goal: GoalWithStats
@@ -19,6 +19,8 @@ export default function EditGoalModal({ goal, onSave, onClose }: Props) {
   const [title,       setTitle]       = useState(goal.title)
   const [description, setDescription] = useState(goal.description || '')
   const [deadline,    setDeadline]    = useState(goal.deadline || '')
+  const [reminderOn,  setReminderOn]  = useState(!!goal.reminder_time)
+  const [reminderTime,setReminderTime]= useState(goal.reminder_time || '09:00')
   const [color,       setColor]       = useState(goal.color)
   const [usedColors,  setUsedColors]  = useState<string[]>([])
   const [loading,     setLoading]     = useState(false)
@@ -41,17 +43,36 @@ export default function EditGoalModal({ goal, onSave, onClose }: Props) {
     if (!title.trim()) return
     setLoading(true)
     const supabase = createClient()
-    const { data } = await supabase
+
+    const base = {
+      title:       title.trim(),
+      description: description.trim() || null,
+      deadline:    goal.type === 'goal' ? (deadline || null) : goal.deadline || null,
+      color,
+    }
+
+    // Intenta incluir reminder_time; si la columna aún no existe en la BD
+    // (falta correr supabase/habit_reminders.sql), reintenta sin ella para
+    // no bloquear la edición de título/descripción/color.
+    let { data } = await supabase
       .from('goals')
       .update({
-        title:       title.trim(),
-        description: description.trim() || null,
-        deadline:    goal.type === 'goal' ? (deadline || null) : goal.deadline || null,
-        color,
+        ...base,
+        reminder_time: goal.type === 'habit' ? (reminderOn ? reminderTime : null) : goal.reminder_time || null,
       })
       .eq('id', goal.id)
       .select()
       .single()
+
+    if (!data) {
+      const retry = await supabase
+        .from('goals')
+        .update(base)
+        .eq('id', goal.id)
+        .select()
+        .single()
+      data = retry.data
+    }
 
     if (data) onSave(data)
     setLoading(false)
@@ -139,6 +160,49 @@ export default function EditGoalModal({ goal, onSave, onClose }: Props) {
               onFocus={e => e.target.style.borderColor = color}
               onBlur={e => e.target.style.borderColor = 'var(--border)'}
             />
+          </div>
+        )}
+
+        {goal.type === 'habit' && (
+          <div style={{
+            background: '#0d1120', border: '1px solid var(--border)',
+            borderRadius: 'var(--radius-md)', padding: '14px',
+            display: 'flex', flexDirection: 'column', gap: '12px',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <Bell size={14} color={reminderOn ? color : 'var(--dim)'} />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text)' }}>Recordatorio diario</div>
+                <div style={{ fontSize: '11px', color: 'var(--muted)' }}>Te avisa con sonido a esta hora cada día</div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setReminderOn(v => !v)}
+                style={{
+                  width: '44px', height: '24px', borderRadius: '12px',
+                  background: reminderOn ? color : 'var(--border)',
+                  border: 'none', cursor: 'pointer', position: 'relative',
+                  transition: 'background 0.2s', flexShrink: 0,
+                }}
+              >
+                <div style={{
+                  position: 'absolute', top: '3px',
+                  left: reminderOn ? '23px' : '3px',
+                  width: '18px', height: '18px', borderRadius: '50%',
+                  background: '#fff', transition: 'left 0.2s',
+                }} />
+              </button>
+            </div>
+            {reminderOn && (
+              <input
+                type="time"
+                value={reminderTime}
+                onChange={e => setReminderTime(e.target.value)}
+                style={{ ...inputStyle, colorScheme: 'dark', color, fontWeight: 600 }}
+                onFocus={e => e.target.style.borderColor = color}
+                onBlur={e => e.target.style.borderColor = 'var(--border)'}
+              />
+            )}
           </div>
         )}
 

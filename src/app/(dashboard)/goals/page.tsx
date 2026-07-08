@@ -3,16 +3,32 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useGoals } from '@/hooks/useGoals'
+import { createClient } from '@/lib/supabase'
+import { GoalWithStats } from '@/types'
 import GoalCard from '@/components/goals/GoalCard'
 import CreateGoalModal from '@/components/goals/CreateGoalModal'
+import EditGoalModal from '@/components/goals/EditGoalModal'
 import Badge from '@/components/ui/Badge'
 import Button from '@/components/ui/Button'
 import { Target, Plus } from 'lucide-react'
 
 export default function GoalsPage() {
-  const { goals, loading } = useGoals()
+  const { goals, loading, updateGoal, removeGoal } = useGoals()
   const [showModal, setShowModal] = useState(false)
+  const [editTarget, setEditTarget] = useState<GoalWithStats | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<GoalWithStats | null>(null)
+  const [deleting, setDeleting] = useState(false)
   const router = useRouter()
+
+  async function handleConfirmDelete() {
+    if (!deleteTarget) return
+    setDeleting(true)
+    const supabase = createClient()
+    await supabase.from('goals').update({ archived: true }).eq('id', deleteTarget.id)
+    removeGoal(deleteTarget.id)
+    setDeleting(false)
+    setDeleteTarget(null)
+  }
 
   const metas = goals.filter(g => g.type === 'goal')
 
@@ -50,7 +66,13 @@ export default function GoalsPage() {
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '12px' }}>
           {metas.map(g => (
-            <GoalCard key={g.id} goal={g} onClick={() => router.push(`/goals/${g.id}`)} />
+            <GoalCard
+              key={g.id}
+              goal={g}
+              onClick={() => router.push(`/goals/${g.id}`)}
+              onEdit={() => setEditTarget(g)}
+              onDelete={() => setDeleteTarget(g)}
+            />
           ))}
         </div>
       )}
@@ -62,6 +84,50 @@ export default function GoalsPage() {
           display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem',
         }}>
           <CreateGoalModal onClose={() => setShowModal(false)} />
+        </div>
+      )}
+
+      {editTarget && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)',
+          backdropFilter: 'blur(4px)', zIndex: 50,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem',
+        }}>
+          <EditGoalModal
+            goal={editTarget}
+            onSave={updated => updateGoal(updated.id, updated)}
+            onClose={() => setEditTarget(null)}
+          />
+        </div>
+      )}
+
+      {deleteTarget && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)',
+          backdropFilter: 'blur(4px)', zIndex: 50,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem',
+        }}>
+          <div style={{
+            background: 'var(--surface)', border: '1px solid #FF386044',
+            borderRadius: 'var(--radius-xl)', padding: '24px',
+            width: '100%', maxWidth: '380px',
+          }}>
+            <h2 style={{ fontSize: '15px', fontWeight: 500, margin: '0 0 10px' }}>Eliminar meta</h2>
+            <p style={{ fontSize: '13px', color: 'var(--muted)', margin: '0 0 20px', lineHeight: 1.5 }}>
+              ¿Eliminar <strong>{deleteTarget.title}</strong> y todas sus submetas? Esta acción no se puede deshacer.
+            </p>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <Button variant="ghost" size="md" onClick={() => setDeleteTarget(null)} style={{ flex: 1 }}>
+                Cancelar
+              </Button>
+              <Button
+                variant="danger" size="md" loading={deleting} onClick={handleConfirmDelete}
+                style={{ flex: 2, justifyContent: 'center', background: 'var(--red)', color: '#fff', border: 'none' }}
+              >
+                Sí, eliminar
+              </Button>
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -2,11 +2,13 @@
 
 import { GoalWithStats, SubGoal } from '@/types'
 import TimerWidget from '@/components/timer/TimerWidget'
-import { ShoppingCart, Cpu, Clock, Target, Repeat2 } from 'lucide-react'
+import { ShoppingCart, Cpu, Clock, Target, Repeat2, Pencil, Trash2 } from 'lucide-react'
 
 interface Props {
   goal: GoalWithStats
   onClick: () => void
+  onEdit?: () => void
+  onDelete?: () => void
 }
 
 const colorMap: Record<string, string> = {
@@ -17,7 +19,7 @@ const colorMap: Record<string, string> = {
   '#FF3860': 'red',
 }
 
-export default function GoalCard({ goal, onClick }: Props) {
+export default function GoalCard({ goal, onClick, onEdit, onDelete }: Props) {
   const subGoals  = goal.sub_goals || []
   const completed = subGoals.filter(sg => sg.completed_at).length
   const total     = subGoals.length
@@ -75,8 +77,36 @@ export default function GoalCard({ goal, onClick }: Props) {
             </div>
           </div>
         </div>
-        <div onClick={e => e.stopPropagation()}>
+        <div onClick={e => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           <TimerWidget goalId={goal.id} color={accent} />
+          {onEdit && (
+            <button
+              onClick={onEdit}
+              title="Editar meta"
+              style={{
+                width: '30px', height: '30px', borderRadius: 'var(--radius-sm)',
+                background: `${accent}12`, border: `1px solid ${accent}30`,
+                color: accent, cursor: 'pointer', flexShrink: 0,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}
+            >
+              <Pencil size={13} />
+            </button>
+          )}
+          {onDelete && (
+            <button
+              onClick={onDelete}
+              title="Eliminar meta"
+              style={{
+                width: '30px', height: '30px', borderRadius: 'var(--radius-sm)',
+                background: '#FF386010', border: '1px solid #FF386030',
+                color: 'var(--red)', cursor: 'pointer', flexShrink: 0,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}
+            >
+              <Trash2 size={13} />
+            </button>
+          )}
         </div>
       </div>
 

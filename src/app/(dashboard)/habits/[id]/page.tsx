@@ -7,11 +7,11 @@ import { GoalWithStats } from '@/types'
 import HabitStreak from '@/components/habits/HabitStreak'
 import HabitLogModal from '@/components/habits/HabitLogModal'
 import TimerWidget from '@/components/timer/TimerWidget'
-import ColorEditButton from '@/components/goals/ColorEditButton'
+import EditGoalModal from '@/components/goals/EditGoalModal'
 import Button from '@/components/ui/Button'
 import Badge from '@/components/ui/Badge'
 import { getTotalSeconds, formatTime } from '@/lib/timer'
-import { ArrowLeft, Clock, Flame, Calendar, CheckCircle2, RotateCcw, Trash2 } from 'lucide-react'
+import { ArrowLeft, Clock, Flame, Calendar, CheckCircle2, RotateCcw, Trash2, Pencil } from 'lucide-react'
 
 export default function HabitDetailPage() {
   const { id }  = useParams<{ id: string }>()
@@ -22,6 +22,7 @@ export default function HabitDetailPage() {
   const [totalSecs, setTotalSecs] = useState(0)
   const [loading,   setLoading]   = useState(true)
   const [showLog,   setShowLog]   = useState(false)
+  const [showEdit,  setShowEdit]  = useState(false)
   const [confirmDel,setConfirmDel]= useState(false)
   const [deleting,  setDeleting]  = useState(false)
   const [confirmUnmarkDate, setConfirmUnmarkDate] = useState<string | null>(null)
@@ -130,11 +131,19 @@ export default function HabitDetailPage() {
         </div>
         <TimerWidget goalId={habit.id} color={accent} />
 
-        <ColorEditButton
-          goalId={habit.id}
-          color={accent}
-          onSaved={c => setHabit(h => h ? { ...h, color: c } : h)}
-        />
+        {/* BOTÓN EDITAR */}
+        <button
+          onClick={() => setShowEdit(true)}
+          title="Editar hábito"
+          style={{
+            width: '34px', height: '34px', borderRadius: 'var(--radius-sm)',
+            background: `${accent}15`, border: `1px solid ${accent}40`,
+            color: accent, cursor: 'pointer', flexShrink: 0,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
+        >
+          <Pencil size={15} />
+        </button>
 
         {/* BOTÓN ELIMINAR */}
         <button
@@ -313,6 +322,20 @@ export default function HabitDetailPage() {
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {showEdit && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)',
+          backdropFilter: 'blur(4px)', zIndex: 60,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem',
+        }}>
+          <EditGoalModal
+            goal={habit}
+            onSave={updated => setHabit(h => h ? { ...h, ...updated } : h)}
+            onClose={() => setShowEdit(false)}
+          />
         </div>
       )}
 

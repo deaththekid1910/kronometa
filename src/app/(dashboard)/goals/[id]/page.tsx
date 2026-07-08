@@ -11,13 +11,13 @@ import AddSubGoalModal from '@/components/goals/AddSubGoalModal'
 import RecurringTaskItem from '@/components/goals/RecurringTaskItem'
 import AddRecurringTaskModal from '@/components/goals/AddRecurringTaskModal'
 import TimerWidget from '@/components/timer/TimerWidget'
-import ColorEditButton from '@/components/goals/ColorEditButton'
+import EditGoalModal from '@/components/goals/EditGoalModal'
 import Badge from '@/components/ui/Badge'
 import Button from '@/components/ui/Button'
 import { getTotalSeconds, formatTime } from '@/lib/timer'
 import {
   ArrowLeft, Plus, Target, Calendar,
-  Clock, CheckCircle2, Circle, Trash2, Repeat2
+  Clock, CheckCircle2, Circle, Trash2, Repeat2, Pencil
 } from 'lucide-react'
 
 export default function GoalDetailPage() {
@@ -29,6 +29,7 @@ export default function GoalDetailPage() {
   const [totalSecs,      setTotalSecs]      = useState(0)
   const [loading,        setLoading]        = useState(true)
   const [showModal,      setShowModal]      = useState(false)
+  const [showEditGoal,   setShowEditGoal]   = useState(false)
   const [confirmDel,     setConfirmDel]     = useState(false)
   const [deleting,       setDeleting]       = useState(false)
   const [recurringTasks, setRecurringTasks] = useState<RecurringTaskWithLogs[]>([])
@@ -293,11 +294,18 @@ export default function GoalDetailPage() {
 
         <TimerWidget goalId={goal.id} color={accent} />
 
-        <ColorEditButton
-          goalId={goal.id}
-          color={accent}
-          onSaved={c => setGoal(g => g ? { ...g, color: c } : g)}
-        />
+        <button
+          onClick={() => setShowEditGoal(true)}
+          title="Editar meta"
+          style={{
+            width: '34px', height: '34px', borderRadius: 'var(--radius-sm)',
+            background: `${accent}15`, border: `1px solid ${accent}40`,
+            color: accent, cursor: 'pointer', flexShrink: 0,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
+        >
+          <Pencil size={15} />
+        </button>
 
         <button
           onClick={() => setConfirmDel(true)}
@@ -559,6 +567,22 @@ export default function GoalDetailPage() {
             color={accent}
             onAdd={handleAddSubGoal}
             onClose={() => setShowModal(false)}
+          />
+        </div>
+      )}
+
+      {/* ── MODAL EDITAR META ── */}
+      {showEditGoal && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)',
+          backdropFilter: 'blur(4px)', zIndex: 60,
+          display: 'flex', alignItems: 'center',
+          justifyContent: 'center', padding: '1rem',
+        }}>
+          <EditGoalModal
+            goal={goal}
+            onSave={updated => setGoal(g => g ? { ...g, ...updated } : g)}
+            onClose={() => setShowEditGoal(false)}
           />
         </div>
       )}

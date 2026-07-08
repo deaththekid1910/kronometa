@@ -7,6 +7,7 @@ import { GoalWithStats } from '@/types'
 import HabitCard from '@/components/habits/HabitCard'
 import HabitLogModal from '@/components/habits/HabitLogModal'
 import CreateGoalModal from '@/components/goals/CreateGoalModal'
+import EditGoalModal from '@/components/goals/EditGoalModal'
 import Button from '@/components/ui/Button'
 import Badge from '@/components/ui/Badge'
 import { Repeat2, Plus } from 'lucide-react'
@@ -19,6 +20,19 @@ export default function HabitsPage() {
   const [loading, setLoading]       = useState(true)
   const [logTarget, setLogTarget]   = useState<GoalWithStats | null>(null)
   const [showCreate, setShowCreate] = useState(false)
+  const [editTarget, setEditTarget]     = useState<GoalWithStats | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<GoalWithStats | null>(null)
+  const [deleting, setDeleting]         = useState(false)
+
+  async function handleConfirmDelete() {
+    if (!deleteTarget) return
+    setDeleting(true)
+    const supabase = createClient()
+    await supabase.from('goals').update({ archived: true }).eq('id', deleteTarget.id)
+    setHabits(prev => prev.filter(h => h.id !== deleteTarget.id))
+    setDeleting(false)
+    setDeleteTarget(null)
+  }
 
   useEffect(() => { loadHabits() }, [])
 
@@ -159,6 +173,8 @@ export default function HabitsPage() {
                     completedToday={false}
                     onClick={() => router.push(`/habits/${h.id}`)}
                     onMarkToday={e => handleMarkToday(e, h)}
+                    onEdit={() => setEditTarget(h)}
+                    onDelete={() => setDeleteTarget(h)}
                   />
                 ))}
               </div>
@@ -180,6 +196,8 @@ export default function HabitsPage() {
                     completedToday={true}
                     onClick={() => router.push(`/habits/${h.id}`)}
                     onMarkToday={e => handleMarkToday(e, h)}
+                    onEdit={() => setEditTarget(h)}
+                    onDelete={() => setDeleteTarget(h)}
                   />
                 ))}
               </div>
@@ -211,6 +229,53 @@ export default function HabitsPage() {
           display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem',
         }}>
           <CreateGoalModal onClose={() => { setShowCreate(false); loadHabits() }} />
+        </div>
+      )}
+
+      {editTarget && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)',
+          backdropFilter: 'blur(4px)', zIndex: 50,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem',
+        }}>
+          <EditGoalModal
+            goal={editTarget}
+            onSave={updated => {
+              setHabits(prev => prev.map(h => h.id === updated.id ? { ...h, ...updated } : h))
+              setEditTarget(null)
+            }}
+            onClose={() => setEditTarget(null)}
+          />
+        </div>
+      )}
+
+      {deleteTarget && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)',
+          backdropFilter: 'blur(4px)', zIndex: 50,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem',
+        }}>
+          <div style={{
+            background: 'var(--surface)', border: '1px solid #FF386044',
+            borderRadius: 'var(--radius-xl)', padding: '24px',
+            width: '100%', maxWidth: '380px',
+          }}>
+            <h2 style={{ fontSize: '15px', fontWeight: 500, margin: '0 0 10px' }}>Eliminar hábito</h2>
+            <p style={{ fontSize: '13px', color: 'var(--muted)', margin: '0 0 20px', lineHeight: 1.5 }}>
+              ¿Eliminar <strong>{deleteTarget.title}</strong> y todo su historial? Esta acción no se puede deshacer.
+            </p>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <Button variant="ghost" size="md" onClick={() => setDeleteTarget(null)} style={{ flex: 1 }}>
+                Cancelar
+              </Button>
+              <Button
+                variant="danger" size="md" loading={deleting} onClick={handleConfirmDelete}
+                style={{ flex: 2, justifyContent: 'center', background: 'var(--red)', color: '#fff', border: 'none' }}
+              >
+                Sí, eliminar
+              </Button>
+            </div>
+          </div>
         </div>
       )}
     </div>

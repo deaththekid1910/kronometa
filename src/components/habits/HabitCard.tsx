@@ -2,7 +2,7 @@
 
 import { GoalWithStats } from '@/types'
 import TimerWidget from '@/components/timer/TimerWidget'
-import { Repeat2, Flame } from 'lucide-react'
+import { Repeat2, Flame, Pencil, Trash2 } from 'lucide-react'
 
 interface Props {
   habit: GoalWithStats
@@ -10,9 +10,11 @@ interface Props {
   completedToday: boolean
   onClick: () => void
   onMarkToday: (e: React.MouseEvent) => void
+  onEdit?: () => void
+  onDelete?: () => void
 }
 
-export default function HabitCard({ habit, streak, completedToday, onClick, onMarkToday }: Props) {
+export default function HabitCard({ habit, streak, completedToday, onClick, onMarkToday, onEdit, onDelete }: Props) {
   const accent = habit.color
 
   return (
@@ -64,8 +66,36 @@ export default function HabitCard({ habit, streak, completedToday, onClick, onMa
             </div>
           </div>
         </div>
-        <div onClick={e => e.stopPropagation()}>
+        <div onClick={e => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           <TimerWidget goalId={habit.id} color={accent} />
+          {onEdit && (
+            <button
+              onClick={onEdit}
+              title="Editar hábito"
+              style={{
+                width: '30px', height: '30px', borderRadius: 'var(--radius-sm)',
+                background: `${accent}12`, border: `1px solid ${accent}30`,
+                color: accent, cursor: 'pointer', flexShrink: 0,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}
+            >
+              <Pencil size={13} />
+            </button>
+          )}
+          {onDelete && (
+            <button
+              onClick={onDelete}
+              title="Eliminar hábito"
+              style={{
+                width: '30px', height: '30px', borderRadius: 'var(--radius-sm)',
+                background: '#FF386010', border: '1px solid #FF386030',
+                color: 'var(--red)', cursor: 'pointer', flexShrink: 0,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}
+            >
+              <Trash2 size={13} />
+            </button>
+          )}
         </div>
       </div>
 

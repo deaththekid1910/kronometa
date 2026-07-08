@@ -12,6 +12,7 @@ import RecurringTaskItem from '@/components/goals/RecurringTaskItem'
 import AddRecurringTaskModal from '@/components/goals/AddRecurringTaskModal'
 import TimerWidget from '@/components/timer/TimerWidget'
 import EditGoalModal from '@/components/goals/EditGoalModal'
+import Countdown from '@/components/goals/Countdown'
 import Badge from '@/components/ui/Badge'
 import Button from '@/components/ui/Button'
 import { getTotalSeconds, formatTime } from '@/lib/timer'
@@ -345,6 +346,26 @@ export default function GoalDetailPage() {
               {deleting ? 'Eliminando...' : 'Sí, eliminar'}
             </button>
           </div>
+        </div>
+      )}
+
+      {/* ── COUNTDOWN ── */}
+      {goal.type === 'goal' && goal.deadline && (
+        <div
+          onClick={() => setShowEditGoal(true)}
+          title="Editar fecha límite"
+          style={{
+            background: 'var(--surface)', border: `1px solid ${accent}30`,
+            borderRadius: 'var(--radius-lg)', padding: '18px',
+            marginBottom: '24px', cursor: 'pointer',
+            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px',
+          }}
+          className="km-countdown-enter"
+        >
+          <span style={{ fontSize: '11px', color: 'var(--muted)', letterSpacing: '1px' }}>
+            TIEMPO RESTANTE
+          </span>
+          <Countdown targetDate={goal.deadline} startDate={goal.created_at} color={accent} variant="default" size="lg" />
         </div>
       )}
 

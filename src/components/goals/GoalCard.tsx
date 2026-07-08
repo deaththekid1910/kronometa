@@ -2,6 +2,7 @@
 
 import { GoalWithStats, SubGoal } from '@/types'
 import TimerWidget from '@/components/timer/TimerWidget'
+import Countdown from '@/components/goals/Countdown'
 import { ShoppingCart, Cpu, Clock, Target, Repeat2, Pencil, Trash2 } from 'lucide-react'
 
 interface Props {
@@ -159,8 +160,8 @@ export default function GoalCard({ goal, onClick, onEdit, onDelete }: Props) {
           </div>
 
           {goal.deadline && (
-            <div style={{ marginTop: '10px', fontSize: '11px', color: 'var(--muted)', display: 'flex', justifyContent: 'flex-end' }}>
-              Vence {new Date(goal.deadline).toLocaleDateString('es-VE')}
+            <div style={{ marginTop: '10px', display: 'flex', justifyContent: 'flex-end' }}>
+              <Countdown targetDate={goal.deadline} startDate={goal.created_at} color={accent} variant="compact" />
             </div>
           )}
         </>

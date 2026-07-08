@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { Goal, GoalWithStats } from '@/types'
 import ColorPicker from '@/components/ui/ColorPicker'
+import DateTimePicker from '@/components/ui/DateTimePicker'
+import Countdown from '@/components/goals/Countdown'
 import Button from '@/components/ui/Button'
 import { Pencil, X, Bell } from 'lucide-react'
 
@@ -18,7 +20,7 @@ interface Props {
 export default function EditGoalModal({ goal, onSave, onClose }: Props) {
   const [title,       setTitle]       = useState(goal.title)
   const [description, setDescription] = useState(goal.description || '')
-  const [deadline,    setDeadline]    = useState(goal.deadline || '')
+  const [deadline,    setDeadline]    = useState<string | null>(goal.deadline || null)
   const [reminderOn,  setReminderOn]  = useState(!!goal.reminder_time)
   const [reminderTime,setReminderTime]= useState(goal.reminder_time || '09:00')
   const [color,       setColor]       = useState(goal.color)
@@ -152,14 +154,12 @@ export default function EditGoalModal({ goal, onSave, onClose }: Props) {
             <label style={{ fontSize: '11px', color: 'var(--muted)', display: 'block', marginBottom: '6px', letterSpacing: '0.5px' }}>
               FECHA LÍMITE (opcional)
             </label>
-            <input
-              type="date"
-              value={deadline}
-              onChange={e => setDeadline(e.target.value)}
-              style={{ ...inputStyle, colorScheme: 'dark' }}
-              onFocus={e => e.target.style.borderColor = color}
-              onBlur={e => e.target.style.borderColor = 'var(--border)'}
-            />
+            <DateTimePicker value={deadline} onChange={setDeadline} color={color} />
+            {deadline && (
+              <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'center' }}>
+                <Countdown targetDate={deadline} startDate={goal.created_at} color={color} variant="default" size="sm" />
+              </div>
+            )}
           </div>
         )}
 

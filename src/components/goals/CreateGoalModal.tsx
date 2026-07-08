@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase'
 import { useGoalsStore } from '@/store/goalsStore'
 import { GoalType } from '@/types'
 import ColorPicker, { firstUnusedColor, PRESET_COLORS } from '@/components/ui/ColorPicker'
+import DateTimePicker from '@/components/ui/DateTimePicker'
 
 interface Props {
   onClose: () => void
@@ -15,7 +16,7 @@ export default function CreateGoalModal({ onClose }: Props) {
   const [type, setType] = useState<GoalType>('goal')
   const [color, setColor] = useState(PRESET_COLORS[0])
   const [usedColors, setUsedColors] = useState<string[]>([])
-  const [deadline, setDeadline] = useState('')
+  const [deadline, setDeadline] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const { addGoal } = useGoalsStore()
 
@@ -129,17 +130,7 @@ export default function CreateGoalModal({ onClose }: Props) {
         {type === 'goal' && (
           <div style={{ marginBottom: '1rem' }}>
             <label style={{ color: '#9ca3af', fontSize: '12px', display: 'block', marginBottom: '6px' }}>Fecha límite (opcional)</label>
-            <input
-              type="date"
-              value={deadline}
-              onChange={e => setDeadline(e.target.value)}
-              style={{
-                width: '100%', padding: '10px 14px', background: '#1a1a2e',
-                border: '1px solid #7F77DD33', borderRadius: '8px',
-                color: '#e2e8f0', fontSize: '14px', outline: 'none',
-                boxSizing: 'border-box', colorScheme: 'dark'
-              }}
-            />
+            <DateTimePicker value={deadline} onChange={setDeadline} color={color} />
           </div>
         )}
 

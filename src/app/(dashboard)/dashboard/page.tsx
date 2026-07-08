@@ -6,6 +6,7 @@ import { useGoals } from '@/hooks/useGoals'
 import { useBreakpoint } from '@/hooks/useBreakpoint'
 import GoalCard from '@/components/goals/GoalCard'
 import CreateGoalModal from '@/components/goals/CreateGoalModal'
+import GoalsSpotlight from '@/components/goals/GoalsSpotlight'
 import TopBar from '@/components/layout/TopBar'
 import Badge from '@/components/ui/Badge'
 import { Target, Repeat2, Clock, Star, Flame, Plus } from 'lucide-react'
@@ -50,6 +51,8 @@ export default function DashboardPage() {
             </button>
           </div>
         )}
+
+        {!loading && <GoalsSpotlight goals={metas} />}
 
         {/* STATS */}
         <div style={{ display: 'grid', gridTemplateColumns: statsColumns, gap: '10px' }}>

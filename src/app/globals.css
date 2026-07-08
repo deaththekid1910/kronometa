@@ -91,6 +91,63 @@ input, textarea, select { font-family: var(--font-sans); }
   animation: float-up 0.22s ease forwards;
 }
 
+/* ===================== COUNTDOWN ===================== */
+
+@keyframes km-digit-flip {
+  0%   { transform: rotateX(90deg); opacity: 0; }
+  60%  { transform: rotateX(0deg);  opacity: 1; }
+  100% { transform: rotateX(0deg);  opacity: 1; }
+}
+.km-countdown-digit {
+  animation: km-digit-flip 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  transform-style: preserve-3d;
+  display: inline-block;
+}
+
+@keyframes km-blink {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.25; }
+}
+.km-countdown-colon { animation: km-blink 1s step-start infinite; }
+
+@keyframes km-glow-warning {
+  0%, 100% { box-shadow: 0 0 10px var(--km-glow, #F59E0B66); }
+  50%       { box-shadow: 0 0 22px var(--km-glow, #F59E0B99); }
+}
+.km-countdown-warning { animation: km-glow-warning 2s ease-in-out infinite; }
+
+@keyframes km-glow-critical {
+  0%, 100% { box-shadow: 0 0 12px var(--km-glow, #EF444477); }
+  50%       { box-shadow: 0 0 28px var(--km-glow, #EF4444cc); }
+}
+@keyframes km-shake {
+  0%, 100% { transform: translateX(0); }
+  25%      { transform: translateX(-2px); }
+  75%      { transform: translateX(2px); }
+}
+.km-countdown-critical {
+  animation: km-glow-critical 1.5s ease-in-out infinite, km-shake 5s ease-in-out infinite;
+}
+
+@keyframes km-glow-urgent {
+  0%, 100% { box-shadow: 0 0 14px #EF444499; }
+  50%       { box-shadow: 0 0 30px #EF4444dd; }
+}
+.km-countdown-urgent { animation: km-glow-urgent 0.9s ease-in-out infinite; }
+
+@keyframes km-bounce-in {
+  0%   { transform: scale(0.6); opacity: 0; }
+  60%  { transform: scale(1.08); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.km-countdown-expired { animation: km-bounce-in 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards; }
+
+@keyframes km-fade-scale-in {
+  from { opacity: 0; transform: scale(0.95); }
+  to   { opacity: 1; transform: scale(1); }
+}
+.km-countdown-enter { animation: km-fade-scale-in 0.4s ease forwards; }
+
 /* ===================== RESPONSIVE ===================== */
 
 /* Tablet */

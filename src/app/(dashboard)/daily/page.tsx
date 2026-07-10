@@ -18,6 +18,7 @@ export default function DailyTasksPage() {
   const [userId,     setUserId]     = useState('')
   const [loading,    setLoading]    = useState(true)
   const [showAdd,    setShowAdd]    = useState(false)
+  const [historyTick, setHistoryTick] = useState(0)   // avisa a TaskHistory que recargue
 
   const today = localToday()
 
@@ -44,19 +45,40 @@ export default function DailyTasksPage() {
   }
 
   // ── Handlers ──
+  // Todas mutan `tasks` y avisan a TaskHistory (historyTick) de que hay un
+  // cambio para que se mantenga sincronizado sin perder sus filtros/página.
   function handleAdd(task: DailyTask) {
     setTasks(prev => [...prev, task])
+    setHistoryTick(v => v + 1)
   }
   function handleComplete(id: string) {
     setTasks(prev => prev.map(t => t.id === id ? { ...t, completed_at: new Date().toISOString() } : t))
+    setHistoryTick(v => v + 1)
   }
   function handleUncomplete(id: string) {
     setTasks(prev => prev.map(t => t.id === id ? { ...t, completed_at: null } : t))
+    setHistoryTick(v => v + 1)
   }
   function handleUpdate(updated: DailyTask) {
     setTasks(prev => prev.map(t => t.id === updated.id ? updated : t))
+    setHistoryTick(v => v + 1)
   }
   function handleDelete(id: string) {
+    setTasks(prev => prev.filter(t => t.id !== id))
+    setHistoryTick(v => v + 1)
+  }
+
+  // Cambios que vienen DESDE el historial (reactivar/completar/editar/borrar
+  // una tarea vieja): reflejarlos aquí para que suba a HOY/INCOMPLETAS al toque.
+  function handleHistoryTaskChanged(task: DailyTask) {
+    setTasks(prev => {
+      const belongsInMainList = !task.completed_at || task.task_date === today
+      const exists = prev.some(t => t.id === task.id)
+      if (!belongsInMainList) return exists ? prev.filter(t => t.id !== task.id) : prev
+      return exists ? prev.map(t => t.id === task.id ? task : t) : [...prev, task]
+    })
+  }
+  function handleHistoryTaskDeleted(id: string) {
     setTasks(prev => prev.filter(t => t.id !== id))
   }
 
@@ -209,7 +231,14 @@ export default function DailyTasksPage() {
       )}
 
       {/* HISTORIAL COMPLETO */}
-      {userId && <TaskHistory userId={userId} />}
+      {userId && (
+        <TaskHistory
+          userId={userId}
+          refreshToken={historyTick}
+          onTaskChanged={handleHistoryTaskChanged}
+          onTaskDeleted={handleHistoryTaskDeleted}
+        />
+      )}
 
       {/* MODAL AGREGAR */}
       {showAdd && (

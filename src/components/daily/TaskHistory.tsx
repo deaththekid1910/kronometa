@@ -14,7 +14,12 @@ const PER_PAGE = 20
 type Estado = 'todas' | 'completada' | 'incompleta' | 'pendiente'
 type Orden = 'fecha_desc' | 'fecha_asc' | 'titulo_asc' | 'titulo_desc'
 
-interface Props { userId: string }
+interface Props {
+  userId: string
+  refreshToken?: number                          // incrementa desde el padre para forzar recarga
+  onTaskChanged?: (task: DailyTask) => void       // propaga el cambio (completar/reactivar/editar) al padre
+  onTaskDeleted?: (id: string) => void
+}
 
 // Escapa caracteres reservados del filtro `.or()` de PostgREST (`,`, `(`, `)`, `%`).
 function escapeForOr(term: string): string {
@@ -27,13 +32,14 @@ function taskColor(t: DailyTask, today: string): { color: string; overdue: boole
   return { color: '#00F5FF', overdue: false }
 }
 
-export default function TaskHistory({ userId }: Props) {
+export default function TaskHistory({ userId, refreshToken = 0, onTaskChanged, onTaskDeleted }: Props) {
   const today = localToday()
 
   const [tasks,   setTasks]   = useState<DailyTask[]>([])
   const [total,   setTotal]   = useState(0)
   const [page,    setPage]    = useState(1)
   const [loading, setLoading] = useState(true)
+  const [toast,   setToast]   = useState<string | null>(null)
 
   const [search,      setSearch]      = useState('')
   const [fechaDesde,  setFechaDesde]  = useState('')
@@ -47,10 +53,18 @@ export default function TaskHistory({ userId }: Props) {
   // Cualquier cambio de filtro reinicia a la página 1.
   useEffect(() => { setPage(1) }, [debouncedSearch, fechaDesde, fechaHasta, estado, orden])
 
+  // refreshToken: cambia cuando una tarea se completa/reactiva/borra desde
+  // las secciones HOY/INCOMPLETAS de la página principal, para mantener el
+  // historial sincronizado sin perder la página/filtros actuales.
   useEffect(() => {
     if (userId) load()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId, page, debouncedSearch, fechaDesde, fechaHasta, estado, orden])
+  }, [userId, page, debouncedSearch, fechaDesde, fechaHasta, estado, orden, refreshToken])
+
+  function showToast(msg: string) {
+    setToast(msg)
+    setTimeout(() => setToast(null), 3500)
+  }
 
   async function load() {
     setLoading(true)
@@ -95,16 +109,32 @@ export default function TaskHistory({ userId }: Props) {
 
   const hasFilters = !!(search || fechaDesde || fechaHasta || estado !== 'todas' || orden !== 'fecha_desc')
 
-  // ── Handlers locales (la fuente de verdad es Supabase; solo reflejamos en UI) ──
-  function patch(id: string, changes: Partial<DailyTask>) {
-    setTasks(prev => prev.map(t => t.id === id ? { ...t, ...changes } : t))
+  // Los handlers de DailyTaskItem ya hicieron el update en Supabase; aquí solo
+  // recargamos la página actual (respeta filtros) y avisamos al padre para
+  // que la tarea aparezca/desaparezca de HOY/INCOMPLETAS sin recargar la app.
+  function handleComplete(id: string) {
+    const t = tasks.find(x => x.id === id)
+    if (t) onTaskChanged?.({ ...t, completed_at: new Date().toISOString() })
+    showToast('Tarea completada ✅')
+    load()
   }
-  function handleComplete(id: string)   { patch(id, { completed_at: new Date().toISOString() }) }
-  function handleUncomplete(id: string) { patch(id, { completed_at: null }) }
-  function handleUpdate(updated: DailyTask) { patch(updated.id, updated) }
+  function handleUncomplete(id: string) {
+    const t = tasks.find(x => x.id === id)
+    if (t) {
+      const updated = { ...t, completed_at: null }
+      onTaskChanged?.(updated)
+      const seccion = updated.task_date < today ? 'INCOMPLETAS' : 'HOY'
+      showToast(`↺ Tarea reactivada — ahora está en ${seccion}`)
+    }
+    load()
+  }
+  function handleUpdate(updated: DailyTask) {
+    onTaskChanged?.(updated)
+    load()
+  }
   function handleDelete(id: string) {
-    setTasks(prev => prev.filter(t => t.id !== id))
-    setTotal(prev => Math.max(0, prev - 1))
+    onTaskDeleted?.(id)
+    load()
   }
 
   return (
@@ -231,6 +261,19 @@ export default function TaskHistory({ userId }: Props) {
             </div>
           )}
         </>
+      )}
+
+      {/* TOAST */}
+      {toast && (
+        <div style={{
+          position: 'fixed', bottom: '24px', left: '24px', zIndex: 99,
+          background: 'var(--surface)', border: `1px solid ${ACCENT}66`,
+          borderRadius: '12px', padding: '12px 16px',
+          fontSize: '13px', color: 'var(--text)', fontWeight: 500,
+          boxShadow: `0 0 24px ${ACCENT}22`, maxWidth: '320px',
+        }}>
+          {toast}
+        </div>
       )}
     </div>
   )

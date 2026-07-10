@@ -358,12 +358,32 @@ export default function GoalDetailPage() {
             background: 'var(--surface)', border: `1px solid ${accent}30`,
             borderRadius: 'var(--radius-lg)', padding: '18px',
             marginBottom: '24px', cursor: 'pointer',
-            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px',
+            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px',
           }}
           className="km-countdown-enter"
         >
+          <span style={{ fontSize: '11px', color: 'var(--muted)', letterSpacing: '1px', fontWeight: 700 }}>
+            📅 FECHA DE VENCIMIENTO
+          </span>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+            <span style={{ fontSize: '14px', color: 'var(--text)', fontWeight: 600, textTransform: 'capitalize' }}>
+              {new Date(goal.deadline).toLocaleDateString('es-VE', {
+                weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+                timeZone: goal.timezone,
+              })}
+            </span>
+            <span style={{ fontSize: '12px', color: 'var(--muted)' }}>
+              ⏰ {new Date(goal.deadline).toLocaleTimeString('es-VE', {
+                hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit',
+                timeZone: goal.timezone,
+              })} ({goal.timezone})
+            </span>
+          </div>
+
+          <div style={{ width: '80%', height: '1px', background: 'var(--border)' }} />
+
           <span style={{ fontSize: '11px', color: 'var(--muted)', letterSpacing: '1px' }}>
-            TIEMPO RESTANTE
+            ⏳ TIEMPO RESTANTE
           </span>
           <Countdown targetDate={goal.deadline} startDate={goal.created_at} color={accent} variant="default" size="lg" />
         </div>

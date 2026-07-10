@@ -164,6 +164,13 @@ export default function GoalCard({ goal, onClick, onEdit, onDelete }: Props) {
       {/* COUNTDOWN — visible siempre que haya fecha límite, tenga o no submetas */}
       {goal.type === 'goal' && goal.deadline && (
         <div style={{ marginTop: '12px' }}>
+          <div style={{ fontSize: '10px', color: 'var(--muted)', marginBottom: '5px', textAlign: 'center' }}>
+            📅 {new Date(goal.deadline).toLocaleDateString('es-VE', {
+              day: 'numeric', month: 'short', year: 'numeric', timeZone: goal.timezone,
+            })} · {new Date(goal.deadline).toLocaleTimeString('es-VE', {
+              hour12: false, hour: '2-digit', minute: '2-digit', timeZone: goal.timezone,
+            })}
+          </div>
           <Countdown targetDate={goal.deadline} startDate={goal.created_at} color={accent} variant="card" />
         </div>
       )}

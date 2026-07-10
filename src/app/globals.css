@@ -170,6 +170,42 @@ input, textarea, select { font-family: var(--font-sans); }
   .km-time-block { min-width: 46px !important; padding: 6px 2px !important; }
 }
 
+/* ===================== DASHBOARD ===================== */
+
+@keyframes km-welcome-float {
+  0%   { transform: translateY(0) rotate(0deg); opacity: 0; }
+  10%  { opacity: 0.55; }
+  90%  { opacity: 0.55; }
+  100% { transform: translateY(-110vh) rotate(360deg); opacity: 0; }
+}
+
+@keyframes km-welcome-progress {
+  from { width: 100%; }
+  to   { width: 0%; }
+}
+
+@keyframes km-shimmer {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+.km-shimmer-sweep {
+  position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.08) 50%, transparent 60%);
+  animation: km-shimmer 8s infinite;
+}
+
+@keyframes km-stagger-in {
+  from { transform: translateY(16px) scale(0.97); opacity: 0; }
+  to   { transform: translateY(0) scale(1); opacity: 1; }
+}
+.km-card-appear { animation: km-stagger-in 500ms ease-out backwards; }
+.km-card-appear:nth-child(1) { animation-delay: 60ms; }
+.km-card-appear:nth-child(2) { animation-delay: 120ms; }
+.km-card-appear:nth-child(3) { animation-delay: 180ms; }
+.km-card-appear:nth-child(4) { animation-delay: 240ms; }
+.km-card-appear:nth-child(5) { animation-delay: 300ms; }
+.km-card-appear:nth-child(6) { animation-delay: 360ms; }
+
 /* ===================== RESPONSIVE ===================== */
 
 /* Tablet */

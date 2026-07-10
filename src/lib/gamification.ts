@@ -106,6 +106,42 @@ export async function awardXP(userId: string, goalId: string, amount: number): P
   return 0
 }
 
+// Racha ACTUAL de días consecutivos con actividad (hasta hoy o ayer), a
+// diferencia de getMaxStreak (interna, histórica, por hábito) usada en
+// checkAndUnlockAchievements. Cuenta "día con actividad" como: al menos un
+// habit_log o una tarea diaria completada ese día.
+export async function getCurrentStreak(userId: string): Promise<number> {
+  const supabase = createClient()
+
+  const [{ data: habitLogs }, { data: dailyTasks }] = await Promise.all([
+    supabase.from('habit_logs').select('logged_date').eq('user_id', userId),
+    supabase.from('daily_tasks').select('completed_at').eq('user_id', userId).not('completed_at', 'is', null),
+  ])
+
+  const activeDays = new Set<string>()
+  for (const l of habitLogs || []) activeDays.add(l.logged_date)
+  for (const t of dailyTasks || []) {
+    if (!t.completed_at) continue
+    const d = new Date(t.completed_at)
+    activeDays.add(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`)
+  }
+
+  const cursor = new Date()
+  cursor.setHours(0, 0, 0, 0)
+  const dayKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+
+  // Si hoy aún no hay actividad registrada, no rompe la racha: se empieza a
+  // contar desde ayer (el usuario todavía tiene el día para no perderla).
+  if (!activeDays.has(dayKey(cursor))) cursor.setDate(cursor.getDate() - 1)
+
+  let streak = 0
+  while (activeDays.has(dayKey(cursor))) {
+    streak++
+    cursor.setDate(cursor.getDate() - 1)
+  }
+  return streak
+}
+
 export async function unlockAchievement(userId: string, key: string): Promise<boolean> {
   const supabase = createClient()
   const { error } = await supabase

@@ -6,6 +6,7 @@ import { DailyTask } from '@/types/dailyTask'
 import { localToday } from '@/lib/dailyTasks'
 import DailyTaskItem from '@/components/daily/DailyTaskItem'
 import AddDailyTaskModal from '@/components/daily/AddDailyTaskModal'
+import TaskHistory from '@/components/daily/TaskHistory'
 import Button from '@/components/ui/Button'
 import Badge from '@/components/ui/Badge'
 import { ListChecks, Plus, Sun, CheckCircle2, AlertTriangle } from 'lucide-react'
@@ -206,6 +207,9 @@ export default function DailyTasksPage() {
           )}
         </>
       )}
+
+      {/* HISTORIAL COMPLETO */}
+      {userId && <TaskHistory userId={userId} />}
 
       {/* MODAL AGREGAR */}
       {showAdd && (

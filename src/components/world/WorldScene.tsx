@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { GoalWithStats, SubGoal } from '@/types'
 import GoalWorld from './GoalWorld'
+import DeadlineCard from '@/components/goals/DeadlineCard'
 import TimerWidget from '@/components/timer/TimerWidget'
 import { ChevronLeft, ChevronRight, Target } from 'lucide-react'
 
@@ -114,6 +115,16 @@ export default function WorldScene({ goals, totalSecondsByGoal }: Props) {
           <ChevronRight size={16} />
         </button>
       </div>
+
+      {/* FECHA DE VENCIMIENTO */}
+      {goal.deadline && (
+        <DeadlineCard
+          deadline={goal.deadline}
+          timezone={goal.timezone}
+          createdAt={goal.created_at}
+          color={goal.color}
+        />
+      )}
 
       {/* ESCENA PRINCIPAL */}
       <div style={{ height: '460px' }}>

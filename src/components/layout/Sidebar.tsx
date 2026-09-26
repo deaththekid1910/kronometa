@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { useXPStore } from '@/store/xpStore'
 import { getUserXP } from '@/lib/gamification'
-import { LayoutDashboard, Target, Repeat2, BarChart2, Trophy, Globe, BookOpen, Settings, LogOut, Hexagon, ListChecks, CalendarClock } from 'lucide-react'
+import { LayoutDashboard, Target, Repeat2, BarChart2, Trophy, Globe, BookOpen, Settings, LogOut, ListChecks, CalendarClock } from 'lucide-react'
 
 const navLinks = [
   { href: '/dashboard',    icon: LayoutDashboard, label: 'Dashboard' },
@@ -91,13 +91,7 @@ export default function Sidebar() {
     }}>
       {/* LOGO */}
       <div style={{ padding: '0 8px 24px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-        <div style={{
-          width: '30px', height: '30px', borderRadius: '9px',
-          background: '#00F5FF0D', border: '1px solid #00F5FF30',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>
-          <Hexagon size={16} color="var(--cyan)" />
-        </div>
+        <img src="/brand/emblem.png" alt="" width={32} height={32} style={{ width: '32px', height: '32px', borderRadius: '50%', flexShrink: 0, boxShadow: '0 0 12px #00F5FF55' }} />
         <span style={{ fontSize: '15px', fontWeight: 600, letterSpacing: '-0.3px' }}>
           Krono<span style={{ color: 'var(--cyan)' }}>Meta</span>
         </span>

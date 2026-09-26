@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Hexagon, Menu, X } from 'lucide-react'
+import { Menu, X } from 'lucide-react'
 
 export default function Navbar() {
   const [scrolled,    setScrolled]    = useState(false)
@@ -30,13 +30,7 @@ export default function Navbar() {
 
           {/* LOGO */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div style={{
-              width: '32px', height: '32px', borderRadius: '9px',
-              background: '#00F5FF12', border: '1px solid #00F5FF44',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              <Hexagon size={18} color="#00F5FF" />
-            </div>
+            <img src="/brand/emblem.png" alt="" width={34} height={34} style={{ width: '34px', height: '34px', borderRadius: '50%', flexShrink: 0, boxShadow: '0 0 12px #00F5FF55' }} />
             <span style={{ fontSize: '18px', fontWeight: 700, letterSpacing: '-0.5px', fontFamily: 'Inter, sans-serif' }}>
               Krono<span style={{ color: '#00F5FF' }}>Meta</span>
             </span>

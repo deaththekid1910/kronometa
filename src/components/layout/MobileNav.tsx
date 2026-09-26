@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase'
 import { useXPStore } from '@/store/xpStore'
 import { getUserXP } from '@/lib/gamification'
 import NotificationBell from '@/components/notifications/NotificationBell'
-import { LayoutDashboard, Target, Repeat2, BarChart2, Trophy, Globe, BookOpen, Settings, LogOut, Hexagon, X, Menu, ListChecks, CalendarClock } from 'lucide-react'
+import { LayoutDashboard, Target, Repeat2, BarChart2, Trophy, Globe, BookOpen, Settings, LogOut, X, Menu, ListChecks, CalendarClock } from 'lucide-react'
 
 const navLinks = [
   { href: '/dashboard',    icon: LayoutDashboard, label: 'Dashboard' },
@@ -80,7 +80,7 @@ export default function MobileNav() {
         justifyContent: 'space-between', padding: '0 16px',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Hexagon size={18} color="var(--cyan)" />
+          <img src="/brand/emblem.png" alt="" width={28} height={28} style={{ width: '28px', height: '28px', borderRadius: '50%', flexShrink: 0, boxShadow: '0 0 12px #00F5FF55' }} />
           <span style={{ fontSize: '15px', fontWeight: 600 }}>
             Krono<span style={{ color: 'var(--cyan)' }}>Meta</span>
           </span>

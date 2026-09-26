@@ -43,8 +43,11 @@ export default function LoginPage() {
         border: '1px solid #7F77DD44',
         borderRadius: '16px'
       }}>
-        <h1 style={{ color: '#a78bfa', fontSize: '28px', fontWeight: 700, marginBottom: '8px', textAlign: 'center' }}>
-          KronoMeta
+        <h1 style={{ margin: '0 0 8px', display: 'flex', justifyContent: 'center' }}>
+          <img
+            src="/brand/logo-full.jpg" alt="KronoMeta" width={200} height={200}
+            style={{ width: '200px', maxWidth: '70%', height: 'auto', borderRadius: '16px' }}
+          />
         </h1>
         <p style={{ color: '#6b7280', fontSize: '14px', textAlign: 'center', marginBottom: '2rem' }}>
           Inicia sesión en tu espacio

@@ -47,8 +47,10 @@ export default function HabitCard({ habit, streak, completedToday, onClick, onMa
         transition: 'all 0.3s',
       }} />
 
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '14px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+      {/* FILA SUPERIOR: icono + racha a la izquierda, acciones a la derecha.
+          El título va debajo a todo el ancho para que se lea completo. */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
           <div style={{
             width: '38px', height: '38px', borderRadius: '10px',
             background: accent + '15', border: `1px solid ${accent}30`,
@@ -56,9 +58,11 @@ export default function HabitCard({ habit, streak, completedToday, onClick, onMa
           }}>
             <Repeat2 size={17} color={accent} />
           </div>
-          <div>
-            <div style={{ fontSize: '14px', fontWeight: 500, marginBottom: '2px' }}>{habit.title}</div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: '10px', color: accent, letterSpacing: '0.8px', fontWeight: 600, textTransform: 'uppercase' }}>
+              Hábito
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}>
               <Flame size={11} color="var(--amber)" />
               <span style={{ fontSize: '11px', color: 'var(--amber)', fontFamily: 'var(--font-mono)' }}>
                 {streak}d de racha
@@ -66,7 +70,7 @@ export default function HabitCard({ habit, streak, completedToday, onClick, onMa
             </div>
           </div>
         </div>
-        <div onClick={e => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+        <div onClick={e => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
           <TimerWidget goalId={habit.id} color={accent} />
           {onEdit && (
             <button
@@ -99,7 +103,14 @@ export default function HabitCard({ habit, streak, completedToday, onClick, onMa
         </div>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <h3 title={habit.title} style={{
+        margin: '0 0 14px', fontSize: '15px', fontWeight: 600, color: 'var(--text)',
+        lineHeight: 1.35, overflowWrap: 'anywhere',
+      }}>
+        {habit.title}
+      </h3>
+
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
         <button
           onClick={onMarkToday}
           style={{

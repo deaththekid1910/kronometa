@@ -69,7 +69,7 @@ export default function WorldScene({ goals, totalSecondsByGoal }: Props) {
             boxShadow: `0 0 8px ${goal.color}`,
           }} />
           <div style={{ minWidth: 0, flex: 1 }}>
-            <div style={{ fontSize: '14px', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <div style={{ fontSize: '14px', fontWeight: 500, lineHeight: 1.35, overflowWrap: 'anywhere' }}>
               {goal.title}
             </div>
             <div style={{ fontSize: '11px', color: 'var(--muted)' }}>
@@ -171,7 +171,7 @@ export default function WorldScene({ goals, totalSecondsByGoal }: Props) {
                   fontSize: '13px', flex: 1,
                   color: sg.completed_at ? 'var(--muted)' : 'var(--text)',
                   textDecoration: sg.completed_at ? 'line-through' : 'none',
-                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                  minWidth: 0, lineHeight: 1.35, overflowWrap: 'anywhere',
                 }}>
                   {sg.title}
                 </span>

@@ -93,7 +93,7 @@ export default function DailyTaskItem({
             color: done ? 'var(--muted)' : 'var(--text)',
             textDecoration: done ? 'line-through' : 'none',
             transition: 'all 0.3s',
-            overflow: 'hidden', textOverflow: 'ellipsis',
+            lineHeight: 1.35, overflowWrap: 'anywhere',
           }}>
             {task.title}
           </span>

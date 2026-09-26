@@ -65,7 +65,7 @@ export default function TodayTasksSummary({ tasks, onToggled }: Props) {
               >
                 {loadingId === t.id && <Check size={11} color="var(--dim)" />}
               </button>
-              <span style={{ fontSize: '13px', color: 'var(--text)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <span style={{ fontSize: '13px', color: 'var(--text)', flex: 1, minWidth: 0, lineHeight: 1.35, overflowWrap: 'anywhere', }}>
                 {t.title}
               </span>
               {t.reminder_time && (

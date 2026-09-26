@@ -73,15 +73,15 @@ export default function HabitConsistencyChart({ data }: Props) {
               display: 'flex', alignItems: 'center',
               justifyContent: 'space-between', marginBottom: '5px', gap: '8px',
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', minWidth: 0, flex: 1 }}>
                 <div style={{
                   width: '8px', height: '8px', borderRadius: '50%',
-                  background: h.color, flexShrink: 0,
+                  background: h.color, flexShrink: 0, transform: 'translateY(-1px)',
                   boxShadow: `0 0 6px ${h.color}`,
                 }} />
                 <span style={{
                   fontSize: '12px', color: 'var(--text)',
-                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                  lineHeight: 1.35, overflowWrap: 'anywhere',
                 }}>{h.title}</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>

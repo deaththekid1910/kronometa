@@ -7,7 +7,7 @@ import {
   ResponsiveContainer, Cell, ReferenceLine
 } from 'recharts'
 
-interface Props { data: GoalTimeData[] }
+interface Props { data: GoalTimeData[]; emptyText?: string }
 
 function CustomTooltip({ active, payload }: any) {
   if (!active || !payload?.length) return null
@@ -28,10 +28,10 @@ function CustomTooltip({ active, payload }: any) {
   )
 }
 
-export default function CandlestickChart({ data }: Props) {
+export default function CandlestickChart({ data, emptyText = 'Sin datos de tiempo aún.' }: Props) {
   if (data.length === 0) return (
     <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--dim)', fontSize: '13px' }}>
-      Sin datos de tiempo aún.
+      {emptyText}
     </div>
   )
 

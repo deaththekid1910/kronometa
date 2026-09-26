@@ -7,7 +7,7 @@ import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer
 } from 'recharts'
 
-interface Props { data: GoalTimeData[] }
+interface Props { data: GoalTimeData[]; emptyText?: string }
 
 function CustomTooltip({ active, payload }: any) {
   if (!active || !payload?.length) return null
@@ -39,16 +39,17 @@ function CustomLabel({ cx, cy, midAngle, innerRadius, outerRadius, percent }: an
   )
 }
 
-export default function TimeByGoalChart({ data }: Props) {
+export default function TimeByGoalChart({ data, emptyText = 'Activa un cronómetro para ver la distribución de tiempo.' }: Props) {
   const bp       = useBreakpoint()
   const isMobile = bp === 'mobile'
 
   if (data.length === 0) return (
     <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--dim)', fontSize: '13px' }}>
-      Activa un cronómetro para ver distribución de tiempo.
+      {emptyText}
     </div>
   )
 
+  const total      = data.reduce((a, d) => a + d.totalSeconds, 0) || 1
   const pieSize    = isMobile ? 160 : 200
   const outerR     = isMobile ? 65  : 90
   const innerR     = isMobile ? 38  : 55
@@ -93,21 +94,26 @@ export default function TimeByGoalChart({ data }: Props) {
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
               marginBottom: '5px', gap: '8px',
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', minWidth: 0, flex: 1 }}>
                 <div style={{
                   width: '8px', height: '8px', borderRadius: '50%',
-                  background: d.color, flexShrink: 0,
+                  background: d.color, flexShrink: 0, transform: 'translateY(-1px)',
                   boxShadow: `0 0 6px ${d.color}`,
                 }} />
                 <span style={{
                   fontSize: '12px', color: 'var(--text)',
-                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                  lineHeight: 1.35, overflowWrap: 'anywhere',
                 }}>{d.title}</span>
               </div>
               <span style={{
                 fontSize: '12px', fontFamily: 'var(--font-mono)',
-                color: d.color, flexShrink: 0,
-              }}>{formatTime(d.totalSeconds)}</span>
+                color: d.color, flexShrink: 0, whiteSpace: 'nowrap',
+              }}>
+                {formatTime(d.totalSeconds)}
+                <span style={{ color: 'var(--muted)', marginLeft: '6px' }}>
+                  {Math.round((d.totalSeconds / total) * 100)}%
+                </span>
+              </span>
             </div>
             <div style={{ height: '4px', background: 'var(--border)', borderRadius: '4px', overflow: 'hidden' }}>
               <div style={{

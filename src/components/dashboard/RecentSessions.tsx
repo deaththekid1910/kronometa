@@ -47,7 +47,7 @@ export default function RecentSessions({ sessions }: Props) {
                 {s.goalType === 'habit' ? <Repeat2 size={14} /> : <Target size={14} />}
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: '13px', color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <div style={{ fontSize: '13px', color: 'var(--text)', lineHeight: 1.35, overflowWrap: 'anywhere', }}>
                   {s.goalTitle}
                 </div>
                 <div style={{ fontSize: '11px', color: 'var(--dim)' }}>

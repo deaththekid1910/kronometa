@@ -112,8 +112,8 @@ export default function HabitDetailPage() {
   return (
     <div style={{ maxWidth: '780px', margin: '0 auto', padding: '24px 20px' }}>
 
-      {/* HEADER */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
+      {/* HEADER: barra de acciones arriba, título a todo el ancho debajo */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
         <button onClick={() => router.back()} style={{
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           width: '34px', height: '34px', borderRadius: 'var(--radius-sm)',
@@ -122,16 +122,7 @@ export default function HabitDetailPage() {
         }}>
           <ArrowLeft size={16} />
         </button>
-        <div style={{ flex: 1 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-            <h1 style={{ fontSize: '18px', fontWeight: 600, margin: 0 }}>{habit.title}</h1>
-            <Badge color={badgeColor}>Hábito</Badge>
-            {completedToday && <Badge color="green" dot>Completado hoy</Badge>}
-            {habit.reminder_time && (
-              <Badge color={badgeColor}>⏰ {habit.reminder_time.slice(0, 5)}</Badge>
-            )}
-          </div>
-        </div>
+        <div style={{ flex: 1 }} />
         <TimerWidget goalId={habit.id} color={accent} />
 
         {/* BOTÓN EDITAR */}
@@ -164,6 +155,17 @@ export default function HabitDetailPage() {
         >
           <Trash2 size={15} />
         </button>
+      </div>
+
+      <div style={{ marginBottom: '24px', minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          <h1 style={{ fontSize: '18px', fontWeight: 600, margin: 0, lineHeight: 1.3, overflowWrap: 'anywhere' }}>{habit.title}</h1>
+          <Badge color={badgeColor}>Hábito</Badge>
+          {completedToday && <Badge color="green" dot>Completado hoy</Badge>}
+          {habit.reminder_time && (
+            <Badge color={badgeColor}>⏰ {habit.reminder_time.slice(0, 5)}</Badge>
+          )}
+        </div>
       </div>
 
       {/* CONFIRM ELIMINAR */}

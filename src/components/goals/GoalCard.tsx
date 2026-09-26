@@ -59,8 +59,10 @@ export default function GoalCard({ goal, onClick, onEdit, onDelete }: Props) {
         background: `linear-gradient(90deg, transparent, ${accent}, transparent)`,
       }} />
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '14px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+      {/* FILA SUPERIOR: icono + tipo a la izquierda, acciones a la derecha.
+          El título va debajo a todo el ancho para que se lea completo. */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
           <div style={{
             width: '38px', height: '38px', borderRadius: '10px',
             background: accent + '12', border: `1px solid ${accent}30`,
@@ -71,14 +73,16 @@ export default function GoalCard({ goal, onClick, onEdit, onDelete }: Props) {
               : <Target size={17} color={accent} />
             }
           </div>
-          <div>
-            <div style={{ fontSize: '14px', fontWeight: 500, marginBottom: '2px' }}>{goal.title}</div>
-            <div style={{ fontSize: '11px', color: 'var(--muted)' }}>
-              {goal.type === 'habit' ? 'Hábito diario' : `${completed}/${total} submetas`}
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: '10px', color: accent, letterSpacing: '0.8px', fontWeight: 600, textTransform: 'uppercase' }}>
+              {goal.type === 'habit' ? 'Hábito' : 'Meta'}
+            </div>
+            <div style={{ fontSize: '11px', color: 'var(--muted)', whiteSpace: 'nowrap' }}>
+              {goal.type === 'habit' ? 'Diario' : `${completed}/${total} submetas`}
             </div>
           </div>
         </div>
-        <div onClick={e => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+        <div onClick={e => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
           <TimerWidget goalId={goal.id} color={accent} />
           {onEdit && (
             <button
@@ -110,6 +114,13 @@ export default function GoalCard({ goal, onClick, onEdit, onDelete }: Props) {
           )}
         </div>
       </div>
+
+      <h3 title={goal.title} style={{
+        margin: '0 0 14px', fontSize: '15px', fontWeight: 600, color: 'var(--text)',
+        lineHeight: 1.35, overflowWrap: 'anywhere',
+      }}>
+        {goal.title}
+      </h3>
 
       {goal.type === 'goal' && total > 0 && (
         <>

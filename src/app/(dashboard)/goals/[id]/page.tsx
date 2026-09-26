@@ -267,8 +267,8 @@ export default function GoalDetailPage() {
   return (
     <div style={{ maxWidth: '780px', margin: '0 auto', padding: '24px 20px' }}>
 
-      {/* ── HEADER ── */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
+      {/* ── HEADER: barra de acciones arriba, título a todo el ancho debajo ── */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
         <button onClick={() => router.back()} style={{
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           width: '34px', height: '34px', borderRadius: 'var(--radius-sm)',
@@ -278,20 +278,7 @@ export default function GoalDetailPage() {
           <ArrowLeft size={16} />
         </button>
 
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-            <h1 style={{ fontSize: '18px', fontWeight: 600, margin: 0 }}>{goal.title}</h1>
-            <Badge color={badgeColor}>{goal.type === 'habit' ? 'Hábito' : 'Meta'}</Badge>
-            {goal.deadline && new Date(goal.deadline) < new Date() && (
-              <Badge color="red">Vencida</Badge>
-            )}
-          </div>
-          {goal.description && (
-            <p style={{ fontSize: '13px', color: 'var(--muted)', margin: '4px 0 0' }}>
-              {goal.description}
-            </p>
-          )}
-        </div>
+        <div style={{ flex: 1 }} />
 
         <TimerWidget goalId={goal.id} color={accent} />
 
@@ -319,6 +306,21 @@ export default function GoalDetailPage() {
         >
           <Trash2 size={15} />
         </button>
+      </div>
+
+      <div style={{ marginBottom: '24px', minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          <h1 style={{ fontSize: '18px', fontWeight: 600, margin: 0, lineHeight: 1.3, overflowWrap: 'anywhere' }}>{goal.title}</h1>
+          <Badge color={badgeColor}>{goal.type === 'habit' ? 'Hábito' : 'Meta'}</Badge>
+          {goal.deadline && new Date(goal.deadline) < new Date() && (
+            <Badge color="red">Vencida</Badge>
+          )}
+        </div>
+        {goal.description && (
+          <p style={{ fontSize: '13px', color: 'var(--muted)', margin: '4px 0 0' }}>
+            {goal.description}
+          </p>
+        )}
       </div>
 
       {/* ── CONFIRM ELIMINAR META ── */}

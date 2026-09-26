@@ -1,44 +1,53 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useTimerStore } from '@/store/timerStore'
-import { startTimer, pauseTimer, getActiveSession } from '@/lib/timer'
+import { startTimer, pauseTimer, getElapsedSeconds } from '@/lib/timer'
 import { createClient } from '@/lib/supabase'
 
 export function useTimer(goalId?: string) {
-  const { activeSession, currentSeconds, setActiveSession } = useTimerStore()
-  const isActive = activeSession?.goal_id === goalId && activeSession?.is_active
+  const session            = useTimerStore(s => (goalId ? s.sessions[goalId] : undefined))
+  const loadActiveSessions = useTimerStore(s => s.loadActiveSessions)
+  const setSession         = useTimerStore(s => s.setSession)
+  // Suscribirse a `now` hace que el widget se repinte cada segundo mientras corre
+  useTimerStore(s => (session ? s.now : 0))
+  const [busy, setBusy] = useState(false)
 
-  useEffect(() => {
-    async function loadActiveSession() {
+  const isActive = !!session?.is_active
+
+  useEffect(() => { loadActiveSessions() }, [loadActiveSessions])
+
+  async function handleStart() {
+    if (!goalId || busy) return
+    setBusy(true)
+    try {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
-      const session = await getActiveSession(user.id)
-      if (session) setActiveSession(session)
+      const created = await startTimer(goalId, user.id)
+      if (created) setSession(goalId, created)
+    } finally {
+      setBusy(false)
     }
-    loadActiveSession()
-  }, [])
-
-  async function handleStart() {
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user || !goalId) return
-    const session = await startTimer(goalId, user.id)
-    if (session) setActiveSession(session)
   }
 
   async function handlePause() {
-    if (!activeSession) return
-    const updated = await pauseTimer(activeSession.id)
-    if (updated) setActiveSession(null)
+    if (!goalId || !session || busy) return
+    setBusy(true)
+    try {
+      const updated = await pauseTimer(session.id)
+      if (updated) setSession(goalId, null)
+    } finally {
+      setBusy(false)
+    }
   }
 
   return {
     isActive,
-    currentSeconds: isActive ? currentSeconds : 0,
-    activeSession,
+    busy,
+    currentSeconds: session ? getElapsedSeconds(session) : 0,
+    activeSession: session ?? null,
     handleStart,
-    handlePause
+    handlePause,
   }
 }

@@ -1,7 +1,7 @@
 'use client'
 
 import { useTimerStore } from '@/store/timerStore'
-import { formatTime } from '@/lib/timer'
+import { formatTime, getElapsedSeconds } from '@/lib/timer'
 import { Plus } from 'lucide-react'
 import Badge from '@/components/ui/Badge'
 import Button from '@/components/ui/Button'
@@ -12,7 +12,9 @@ interface Props {
 }
 
 export default function TopBar({ onNewGoal }: Props) {
-  const { activeSession, currentSeconds } = useTimerStore()
+  const sessions = useTimerStore(s => s.sessions)
+  useTimerStore(s => s.now)
+  const running  = Object.values(sessions)
 
   const now     = new Date()
   const dateStr = now.toLocaleDateString('es-VE', {
@@ -33,12 +35,18 @@ export default function TopBar({ onNewGoal }: Props) {
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-        {activeSession?.is_active && (
+        {running.length === 1 && (
           <Badge color="amber" dot pulse>
             <span style={{ fontFamily: 'var(--font-mono)', fontSize: '12px' }}>
-              {formatTime(currentSeconds)}
+              {formatTime(getElapsedSeconds(running[0]))}
             </span>
             <span style={{ color: 'var(--dim)', fontSize: '11px' }}>corriendo</span>
+          </Badge>
+        )}
+        {running.length > 1 && (
+          <Badge color="amber" dot pulse>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '12px' }}>{running.length}</span>
+            <span style={{ color: 'var(--dim)', fontSize: '11px' }}>cronómetros corriendo</span>
           </Badge>
         )}
 

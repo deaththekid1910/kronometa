@@ -85,7 +85,7 @@ export default function ScheduleBlockItem({ block, showStatus, onUpdate, onDelet
             <span style={{
               fontSize: '14px', fontWeight: 500,
               color: dimmed ? 'var(--muted)' : 'var(--text)',
-              overflow: 'hidden', textOverflow: 'ellipsis',
+              lineHeight: 1.35, overflowWrap: 'anywhere',
             }}>
               {block.title}
             </span>

@@ -1,253 +1,377 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase'
-import { getDailyHistory, DayBreakdown, DateHistoryItem } from '@/lib/reports'
-import { formatTime, getActiveSession } from '@/lib/timer'
+import { getDailyHistory, getHistoryByDate, localDateOf, DayBreakdown, DateHistoryItem } from '@/lib/reports'
+import { formatTime } from '@/lib/timer'
 import { useTimerStore } from '@/store/timerStore'
-import { CalendarSearch, Target, Repeat2, Clock, ChevronDown, X } from 'lucide-react'
+import { CalendarSearch, Target, Repeat2, ChevronLeft, ChevronRight, Clock, Layers } from 'lucide-react'
 
-function todayStr(): string {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+const ACCENT     = '#FFB800'
+const HISTORY    = 30          // días que se cargan de golpe
+const STRIP_DAYS = 14          // días visibles en la tira de selección
+
+function shiftDate(date: string, delta: number): string {
+  const d = new Date(date + 'T12:00:00')
+  d.setDate(d.getDate() + delta)
+  return localDateOf(d)
 }
 
-function niceDate(date: string): string {
-  const today = todayStr()
-  if (date === today) return 'Hoy'
-  const y = new Date(); y.setDate(y.getDate() - 1)
-  const yStr = `${y.getFullYear()}-${String(y.getMonth() + 1).padStart(2, '0')}-${String(y.getDate()).padStart(2, '0')}`
-  if (date === yStr) return 'Ayer'
+function longDate(date: string): string {
   return new Date(date + 'T12:00:00').toLocaleDateString('es-VE', {
-    weekday: 'long', day: 'numeric', month: 'long',
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
   })
 }
 
-const ACCENT = '#FFB800'
+function relativeLabel(date: string, today: string): string | null {
+  if (date === today) return 'Hoy'
+  if (date === shiftDate(today, -1)) return 'Ayer'
+  return null
+}
 
 interface Props { isMobile: boolean }
 
 export default function DateHistorySection({ isMobile }: Props) {
-  const [days,     setDays]     = useState<DayBreakdown[]>([])
-  const [loading,  setLoading]  = useState(true)
-  const [open,     setOpen]     = useState<Record<string, boolean>>({})
-  const [filter,   setFilter]   = useState('')      // 'YYYY-MM-DD' o '' (todos)
-  const firstLoad = useRef(true)
+  const today = localDateOf(new Date())
 
-  // Sesión activa global (zustand): se actualiza al iniciar/detener cualquier
-  // temporizador en la app, lo que dispara el refresco en vivo de aquí.
-  const activeSession    = useTimerStore(s => s.activeSession)
-  const setActiveSession = useTimerStore(s => s.setActiveSession)
+  const [days,      setDays]      = useState<Record<string, DayBreakdown>>({})
+  const [loading,   setLoading]   = useState(true)
+  const [selected,  setSelected]  = useState(today)
+  const [fetchedAt, setFetchedAt] = useState(() => Date.now())
+  const stripRef = useRef<HTMLDivElement>(null)
 
-  // Carga inicial (con spinner) + sincroniza la sesión activa global por si el
-  // temporizador se arrancó en otra pantalla.
+  // Sesiones activas globales: al iniciar/detener cualquier cronómetro se
+  // recarga el historial, y mientras haya alguno corriendo el tiempo sube en
+  // vivo sin volver a consultar la base de datos.
+  const sessions           = useTimerStore(s => s.sessions)
+  const now                = useTimerStore(s => s.now)
+  const loadActiveSessions = useTimerStore(s => s.loadActiveSessions)
+  const runningKey         = Object.keys(sessions).sort().join(',')
+
+  async function load() {
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { setLoading(false); return }
+    const data = await getDailyHistory(user.id, HISTORY)
+    setDays(prev => {
+      const next: Record<string, DayBreakdown> = {}
+      // Conserva los días antiguos consultados a mano
+      for (const [k, v] of Object.entries(prev)) if (k < shiftDate(today, -(HISTORY - 1))) next[k] = v
+      for (const d of data) next[d.date] = d
+      return next
+    })
+    setFetchedAt(Date.now())
+    setLoading(false)
+  }
+
+  async function loadSingle(date: string) {
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const items = await getHistoryByDate(user.id, date)
+    setDays(prev => ({
+      ...prev,
+      [date]: { date, items, totalSeconds: items.reduce((a, i) => a + i.totalSeconds, 0) },
+    }))
+  }
+
+  useEffect(() => { loadActiveSessions() }, [loadActiveSessions])
+
+  useEffect(() => { load() }, [runningKey])
+
   useEffect(() => {
-    load(false)
-    ;(async () => {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-      const s = await getActiveSession(user.id)
-      if (s) setActiveSession(s)
-    })()
-  }, [])
-
-  // Recarga cuando arranca o se detiene una sesión (transición de activeSession).
-  useEffect(() => {
-    if (firstLoad.current) return   // la carga inicial ya lo cubre
-    load(true)
-  }, [activeSession?.id, activeSession?.is_active])
-
-  // Mientras el cronómetro corre, refresca cada segundo para que el tiempo del
-  // día suba en vivo.
-  useEffect(() => {
-    if (!activeSession?.is_active) return
-    const id = setInterval(() => load(true), 1000)
-    return () => clearInterval(id)
-  }, [activeSession?.id, activeSession?.is_active])
-
-  // Al volver a la pestaña, refresca por si se trabajó en otra parte.
-  useEffect(() => {
-    const onFocus = () => load(true)
+    const onFocus = () => { loadActiveSessions(true); load() }
     window.addEventListener('focus', onFocus)
     return () => window.removeEventListener('focus', onFocus)
   }, [])
 
-  async function load(silent = false) {
-    if (!silent) setLoading(true)
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { setLoading(false); return }
-    const data = await getDailyHistory(user.id, 30)
-    setDays(data)
-    // El día más reciente arranca expandido (solo la primera vez, para no
-    // pisar lo que el usuario haya plegado/desplegado en los refrescos).
-    if (firstLoad.current && data[0]) setOpen({ [data[0].date]: true })
-    firstLoad.current = false
-    setLoading(false)
-  }
+  // Días fuera del rango cargado (elegidos con el calendario) se piden aparte
+  useEffect(() => {
+    if (loading) return
+    if (!days[selected] && selected < shiftDate(today, -(HISTORY - 1))) loadSingle(selected)
+  }, [selected, loading])
 
-  const visible = filter ? days.filter(d => d.date === filter) : days
+  // Mantiene visible en la tira el día seleccionado
+  useEffect(() => {
+    const el = stripRef.current?.querySelector<HTMLElement>(`[data-date="${selected}"]`)
+    el?.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' })
+  }, [selected])
+
+  // Segundos transcurridos desde la última consulta (para lo que está corriendo)
+  const liveExtra = runningKey ? Math.max(0, Math.floor((now - fetchedAt) / 1000)) : 0
+  const secsOf = (it: DateHistoryItem) => it.totalSeconds + (it.running ? liveExtra : 0)
+
+  const strip = useMemo(() => {
+    const out: { date: string; secs: number }[] = []
+    for (let i = STRIP_DAYS - 1; i >= 0; i--) {
+      const date = shiftDate(today, -i)
+      const d = days[date]
+      out.push({ date, secs: d ? d.items.reduce((a, it) => a + secsOf(it), 0) : 0 })
+    }
+    return out
+  }, [days, today, liveExtra])
+  const stripMax = Math.max(...strip.map(s => s.secs), 1)
+
+  const day      = days[selected]
+  const items    = day?.items || []
+  const goals    = items.filter(i => i.type !== 'habit')
+  const habits   = items.filter(i => i.type === 'habit')
+  const dayTotal = items.reduce((a, i) => a + secsOf(i), 0)
+  const goalSecs = goals.reduce((a, i) => a + secsOf(i), 0)
+  const habitSecs = habits.reduce((a, i) => a + secsOf(i), 0)
+  const sessionsCount = items.reduce((a, i) => a + i.sessions, 0)
+  const rel = relativeLabel(selected, today)
 
   return (
-    <div style={{
+    <section style={{
       background: 'var(--surface)', border: '1px solid var(--border)',
       borderRadius: 'var(--radius-lg)',
       padding: isMobile ? '14px' : '20px',
-      marginBottom: isMobile ? '14px' : '20px',
     }}>
-      {/* HEADER */}
+      {/* CABECERA: título + navegación de fecha */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        gap: '12px', marginBottom: '16px', flexWrap: 'wrap',
+        gap: '12px', marginBottom: '14px', flexWrap: 'wrap',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <CalendarSearch size={14} color={ACCENT} />
-          <span style={{ fontSize: isMobile ? '10px' : '11px', color: 'var(--muted)', letterSpacing: '1px', fontWeight: 500 }}>
+          <h3 style={{ margin: 0, fontSize: isMobile ? '11px' : '12px', color: 'var(--text)', letterSpacing: '0.8px', fontWeight: 600 }}>
             HISTORIAL DIARIO
-          </span>
+          </h3>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <NavButton onClick={() => setSelected(d => shiftDate(d, -1))} title="Día anterior">
+            <ChevronLeft size={15} />
+          </NavButton>
           <input
             type="date"
-            value={filter}
-            max={todayStr()}
-            onChange={e => setFilter(e.target.value)}
+            value={selected}
+            max={today}
+            onChange={e => e.target.value && setSelected(e.target.value)}
             style={{
-              padding: '7px 12px', background: '#1a1a2e',
+              padding: '6px 10px', background: '#1a1a2e',
               border: `1px solid ${ACCENT}40`, borderRadius: 'var(--radius-sm)',
               color: ACCENT, fontSize: '13px', fontWeight: 600, outline: 'none',
               colorScheme: 'dark', fontFamily: 'var(--font-mono)', cursor: 'pointer',
             }}
           />
-          {filter && (
-            <button
-              onClick={() => setFilter('')}
-              title="Ver todos los días"
-              style={{
-                display: 'flex', alignItems: 'center', background: 'transparent',
-                border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
-                color: 'var(--muted)', cursor: 'pointer', padding: '6px',
-              }}
-            >
-              <X size={14} />
+          <NavButton onClick={() => setSelected(d => shiftDate(d, 1))} disabled={selected >= today} title="Día siguiente">
+            <ChevronRight size={15} />
+          </NavButton>
+          {selected !== today && (
+            <button onClick={() => setSelected(today)} style={{
+              padding: '6px 10px', borderRadius: 'var(--radius-sm)',
+              background: 'transparent', border: '1px solid var(--border)',
+              color: 'var(--muted)', fontSize: '12px', cursor: 'pointer',
+            }}>
+              Hoy
             </button>
           )}
         </div>
       </div>
 
-      {/* LISTA DE DÍAS */}
+      {/* TIRA DE LOS ÚLTIMOS 14 DÍAS */}
+      <div ref={stripRef} style={{
+        display: 'grid', gridAutoFlow: 'column',
+        gridAutoColumns: isMobile ? '44px' : 'minmax(40px, 1fr)',
+        gap: '6px', overflowX: 'auto', paddingBottom: '4px', marginBottom: '16px',
+        scrollbarWidth: 'thin',
+      }}>
+        {strip.map(s => {
+          const active = s.date === selected
+          const d = new Date(s.date + 'T12:00:00')
+          const wd = d.toLocaleDateString('es-VE', { weekday: 'short' }).replace('.', '').slice(0, 3)
+          return (
+            <button
+              key={s.date}
+              data-date={s.date}
+              onClick={() => setSelected(s.date)}
+              title={`${longDate(s.date)} · ${formatTime(s.secs)}`}
+              style={{
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px',
+                padding: '8px 0 6px', borderRadius: 'var(--radius-sm)', cursor: 'pointer',
+                background: active ? `${ACCENT}14` : 'transparent',
+                border: `1px solid ${active ? ACCENT + '66' : 'var(--border)'}`,
+              }}
+            >
+              <div style={{ height: '36px', width: '8px', display: 'flex', alignItems: 'flex-end', background: 'var(--border)', borderRadius: '4px', overflow: 'hidden' }}>
+                <div style={{
+                  width: '100%', height: `${s.secs > 0 ? Math.max(8, (s.secs / stripMax) * 100) : 0}%`,
+                  background: active ? ACCENT : `${ACCENT}99`, borderRadius: '4px',
+                  transition: 'height 0.5s ease',
+                }} />
+              </div>
+              <span style={{ fontSize: '10px', color: active ? ACCENT : 'var(--muted)', textTransform: 'capitalize' }}>{wd}</span>
+              <span style={{ fontSize: '12px', fontWeight: 600, fontFamily: 'var(--font-mono)', color: active ? 'var(--text)' : 'var(--muted)' }}>
+                {d.getDate()}
+              </span>
+            </button>
+          )
+        })}
+      </div>
+
+      {/* RESUMEN DEL DÍA SELECCIONADO */}
+      <div style={{
+        display: 'flex', alignItems: isMobile ? 'flex-start' : 'center', justifyContent: 'space-between',
+        flexDirection: isMobile ? 'column' : 'row',
+        gap: '10px', padding: isMobile ? '12px' : '14px 16px',
+        background: '#ffffff05', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)',
+        marginBottom: '16px',
+      }}>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text)', textTransform: 'capitalize', lineHeight: 1.3 }}>
+            {rel ? `${rel} · ` : ''}{longDate(selected)}
+          </div>
+          <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '3px' }}>
+            {items.length} {items.length === 1 ? 'actividad' : 'actividades'} · {sessionsCount} {sessionsCount === 1 ? 'sesión' : 'sesiones'}
+          </div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+          <Clock size={16} color={ACCENT} />
+          <span style={{ fontSize: isMobile ? '20px' : '24px', fontWeight: 700, fontFamily: 'var(--font-mono)', color: ACCENT }}>
+            {formatTime(dayTotal)}
+          </span>
+        </div>
+      </div>
+
       {loading ? (
         <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--dim)', fontFamily: 'var(--font-mono)', fontSize: '13px' }}>
           cargando...
         </div>
-      ) : visible.length === 0 ? (
+      ) : items.length === 0 ? (
         <div style={{
-          textAlign: 'center', padding: '2rem',
+          textAlign: 'center', padding: '2rem 1rem', lineHeight: 1.5,
           border: '1px dashed var(--border)', borderRadius: 'var(--radius-md)',
-          color: 'var(--dim)', fontSize: '13px',
+          color: 'var(--muted)', fontSize: '13px',
         }}>
-          {filter
-            ? 'No registraste tiempo en metas ni hábitos este día.'
-            : 'Aún no hay tiempo registrado. Inicia un temporizador en una meta o hábito para empezar tu historial.'}
+          No registraste tiempo en metas ni hábitos este día.
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          {visible.map(day => {
-            const isOpen = open[day.date] ?? false
-            return (
-              <div key={day.date} style={{
-                border: '1px solid var(--border)', borderRadius: 'var(--radius-md)',
-                overflow: 'hidden',
-              }}>
-                {/* CABECERA DEL DÍA */}
-                <button
-                  onClick={() => setOpen(o => ({ ...o, [day.date]: !isOpen }))}
-                  style={{
-                    width: '100%', display: 'flex', alignItems: 'center',
-                    justifyContent: 'space-between', gap: '10px',
-                    padding: isMobile ? '10px 12px' : '12px 14px',
-                    background: isOpen ? '#ffffff06' : 'transparent',
-                    border: 'none', cursor: 'pointer', textAlign: 'left',
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
-                    <ChevronDown
-                      size={14}
-                      color="var(--muted)"
-                      style={{ flexShrink: 0, transform: isOpen ? 'rotate(0deg)' : 'rotate(-90deg)', transition: 'transform 0.2s' }}
-                    />
-                    <span style={{
-                      fontSize: '13px', color: 'var(--text)', fontWeight: 500,
-                      textTransform: 'capitalize',
-                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                    }}>
-                      {niceDate(day.date)}
-                    </span>
-                    <span style={{ fontSize: '11px', color: 'var(--dim)', flexShrink: 0 }}>
-                      · {day.items.length} {day.items.length === 1 ? 'actividad' : 'actividades'}
-                    </span>
-                  </div>
-                  <span style={{
-                    display: 'flex', alignItems: 'center', gap: '5px', flexShrink: 0,
-                    fontSize: '13px', fontFamily: 'var(--font-mono)', color: ACCENT, fontWeight: 600,
-                  }}>
-                    <Clock size={12} /> {formatTime(day.totalSeconds)}
-                  </span>
-                </button>
-
-                {/* DESGLOSE POR META / HÁBITO */}
-                {isOpen && (
-                  <div style={{
-                    display: 'flex', flexDirection: 'column', gap: '12px',
-                    padding: isMobile ? '4px 12px 14px' : '4px 14px 16px',
-                  }}>
-                    {day.items.map(it => (
-                      <BreakdownRow key={it.id} it={it} max={day.items[0].totalSeconds || 1} />
-                    ))}
-                  </div>
-                )}
+        <>
+          {/* REPARTO METAS / HÁBITOS */}
+          {goals.length > 0 && habits.length > 0 && (
+            <div style={{ marginBottom: '18px' }}>
+              <div style={{ display: 'flex', height: '8px', borderRadius: '6px', overflow: 'hidden', background: 'var(--border)' }}>
+                <div style={{ width: `${(goalSecs / (dayTotal || 1)) * 100}%`, background: 'var(--cyan)' }} />
+                <div style={{ width: `${(habitSecs / (dayTotal || 1)) * 100}%`, background: 'var(--green)' }} />
               </div>
-            )
-          })}
-        </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px', fontSize: '11px', gap: '8px' }}>
+                <span style={{ color: 'var(--cyan)' }}>Metas {Math.round((goalSecs / (dayTotal || 1)) * 100)}%</span>
+                <span style={{ color: 'var(--green)' }}>Hábitos {Math.round((habitSecs / (dayTotal || 1)) * 100)}%</span>
+              </div>
+            </div>
+          )}
+
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: isMobile || goals.length === 0 || habits.length === 0 ? 'minmax(0, 1fr)' : 'repeat(2, minmax(0, 1fr))',
+            gap: isMobile ? '18px' : '24px',
+          }}>
+            {goals.length > 0 && (
+              <Group
+                title="Metas" icon={<Target size={13} />} color="var(--cyan)"
+                total={goalSecs} items={goals} dayTotal={dayTotal} secsOf={secsOf}
+              />
+            )}
+            {habits.length > 0 && (
+              <Group
+                title="Hábitos" icon={<Repeat2 size={13} />} color="var(--green)"
+                total={habitSecs} items={habits} dayTotal={dayTotal} secsOf={secsOf}
+              />
+            )}
+          </div>
+        </>
       )}
-    </div>
+    </section>
   )
 }
 
-function BreakdownRow({ it, max }: { it: DateHistoryItem; max: number }) {
+function NavButton({ children, onClick, disabled, title }: { children: React.ReactNode; onClick: () => void; disabled?: boolean; title: string }) {
+  return (
+    <button
+      onClick={onClick} disabled={disabled} title={title}
+      style={{
+        width: '30px', height: '30px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: 'transparent', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
+        color: disabled ? 'var(--dim)' : 'var(--muted)', cursor: disabled ? 'not-allowed' : 'pointer',
+      }}
+    >
+      {children}
+    </button>
+  )
+}
+
+interface GroupProps {
+  title: string
+  icon: React.ReactNode
+  color: string
+  total: number
+  items: DateHistoryItem[]
+  dayTotal: number
+  secsOf: (it: DateHistoryItem) => number
+}
+
+function Group({ title, icon, color, total, items, dayTotal, secsOf }: GroupProps) {
+  const sorted = [...items].sort((a, b) => secsOf(b) - secsOf(a))
+  const max = secsOf(sorted[0]) || 1
+
   return (
     <div style={{ minWidth: 0 }}>
       <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        marginBottom: '5px', gap: '8px',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px',
+        paddingBottom: '8px', marginBottom: '12px', borderBottom: '1px solid var(--border)',
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
-          <span style={{ color: it.color, display: 'flex', flexShrink: 0 }}>
-            {it.type === 'habit' ? <Repeat2 size={13} /> : <Target size={13} />}
-          </span>
-          <span style={{
-            fontSize: '13px', color: 'var(--text)',
-            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-          }}>{it.title}</span>
-          <span style={{ fontSize: '10px', color: 'var(--dim)', flexShrink: 0 }}>
-            · {it.sessions} {it.sessions === 1 ? 'sesión' : 'sesiones'}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color }}>
+          {icon}
+          <span style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.8px', textTransform: 'uppercase' }}>{title}</span>
+          <span style={{ fontSize: '11px', color: 'var(--muted)' }}>
+            <Layers size={10} style={{ verticalAlign: '-1px', marginRight: '3px' }} />{items.length}
           </span>
         </div>
-        <span style={{ fontSize: '13px', fontFamily: 'var(--font-mono)', color: it.color, flexShrink: 0, fontWeight: 600 }}>
-          {formatTime(it.totalSeconds)}
-        </span>
+        <span style={{ fontSize: '13px', fontFamily: 'var(--font-mono)', fontWeight: 600, color }}>{formatTime(total)}</span>
       </div>
-      <div style={{ height: '5px', background: 'var(--border)', borderRadius: '4px', overflow: 'hidden' }}>
-        <div style={{
-          height: '100%',
-          width: `${Math.round((it.totalSeconds / max) * 100)}%`,
-          background: `linear-gradient(90deg, ${it.color}66, ${it.color})`,
-          borderRadius: '4px',
-          boxShadow: `0 0 8px ${it.color}66`,
-          transition: 'width 0.8s ease',
-        }} />
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+        {sorted.map(it => {
+          const secs = secsOf(it)
+          return (
+            <div key={it.id} style={{ minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '10px', marginBottom: '4px' }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', minWidth: 0, flex: 1 }}>
+                  <span style={{
+                    width: '8px', height: '8px', borderRadius: '50%', background: it.color,
+                    boxShadow: `0 0 6px ${it.color}`, flexShrink: 0, transform: 'translateY(-1px)',
+                  }} />
+                  <span style={{ fontSize: '13px', color: 'var(--text)', lineHeight: 1.35, overflowWrap: 'anywhere' }}>
+                    {it.title}
+                  </span>
+                </div>
+                <span style={{ fontSize: '13px', fontFamily: 'var(--font-mono)', fontWeight: 600, color: it.color, whiteSpace: 'nowrap' }}>
+                  {formatTime(secs)}
+                </span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingLeft: '16px', marginBottom: '6px', fontSize: '11px', color: 'var(--muted)', flexWrap: 'wrap' }}>
+                <span>{it.sessions} {it.sessions === 1 ? 'sesión' : 'sesiones'}</span>
+                <span>·</span>
+                <span>{Math.round((secs / (dayTotal || 1)) * 100)}% del día</span>
+                {it.running && (
+                  <span style={{ color: 'var(--amber)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--amber)', boxShadow: 'var(--glow-amber)' }} />
+                    en curso
+                  </span>
+                )}
+              </div>
+              <div style={{ marginLeft: '16px', height: '5px', background: 'var(--border)', borderRadius: '4px', overflow: 'hidden' }}>
+                <div style={{
+                  height: '100%', width: `${Math.round((secs / max) * 100)}%`,
+                  background: `linear-gradient(90deg, ${it.color}66, ${it.color})`,
+                  borderRadius: '4px', boxShadow: `0 0 8px ${it.color}66`,
+                  transition: 'width 0.8s ease',
+                }} />
+              </div>
+            </div>
+          )
+        })}
       </div>
     </div>
   )

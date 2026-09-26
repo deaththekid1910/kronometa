@@ -23,12 +23,19 @@ export function formatTime(totalSeconds: number): string {
 export async function startTimer(goalId: string, userId: string): Promise<TimerSession | null> {
   const supabase = createClient()
 
-  // Cerramos cualquier sesión activa previa (solo puede haber una a la vez).
-  await supabase
+  // Varias metas pueden cronometrarse en paralelo, pero cada meta tiene como
+  // máximo una sesión activa: si ya había una corriendo para ESTA meta, se
+  // cierra guardando su tiempo antes de abrir la nueva.
+  const { data: previous } = await supabase
     .from('timer_sessions')
-    .update({ is_active: false, ended_at: new Date().toISOString() })
+    .select('*')
     .eq('user_id', userId)
+    .eq('goal_id', goalId)
     .eq('is_active', true)
+
+  for (const s of previous || []) {
+    await pauseTimer(s.id)
+  }
 
   // Cada inicio crea SIEMPRE su propia fila con su fecha real (created_at).
   // Así el historial diario por meta/hábito es siempre correcto: cada sesión
@@ -78,15 +85,16 @@ export async function pauseTimer(sessionId: string): Promise<TimerSession | null
   return data
 }
 
-export async function getActiveSession(userId: string): Promise<TimerSession | null> {
+// Todas las sesiones en curso del usuario (una por meta/hábito como máximo).
+export async function getActiveSessions(userId: string): Promise<TimerSession[]> {
   const supabase = createClient()
   const { data } = await supabase
     .from('timer_sessions')
     .select('*')
     .eq('user_id', userId)
     .eq('is_active', true)
-    .single()
-  return data
+    .order('started_at', { ascending: true })
+  return data || []
 }
 
 export async function getTotalSeconds(goalId: string): Promise<number> {

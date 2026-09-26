@@ -176,7 +176,7 @@ export default function SubGoalItem({
               color: done ? 'var(--muted)' : 'var(--text)',
               textDecoration: done ? 'line-through' : 'none',
               transition: 'all 0.3s',
-              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              lineHeight: 1.35, overflowWrap: 'anywhere',
             }}>
               {subGoal.title}
             </span>

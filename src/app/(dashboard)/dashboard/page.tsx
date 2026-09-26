@@ -254,7 +254,7 @@ export default function DashboardPage() {
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
               <CalendarClock size={14} color={nextDeadline.color} />
               <span style={{ fontSize: '11px', color: 'var(--muted)' }}>Próximo vencimiento:</span>
-              <span style={{ fontSize: '13px', color: 'var(--text)', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <span style={{ fontSize: '13px', color: 'var(--text)', fontWeight: 500, lineHeight: 1.35, overflowWrap: 'anywhere', }}>
                 {nextDeadline.title}
               </span>
             </div>

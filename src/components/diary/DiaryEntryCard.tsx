@@ -1,23 +1,13 @@
 'use client'
 
 import { useState } from 'react'
-import { DiaryEntry, MOODS } from '@/lib/diary'
+import { DiaryEntry, MOODS, diaryPlainText, entryDay, entryTime } from '@/lib/diary'
 import { Calendar, Edit2, Trash2 } from 'lucide-react'
 
 interface Props {
   entry: DiaryEntry
   onEdit: () => void
   onDelete: () => void
-}
-
-function stripHtml(html: unknown): string {
-  if (!html) return ''
-  const str = typeof html === 'string' ? html : JSON.stringify(html)
-  return str
-    .replace(/<[^>]*>/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, 200)
 }
 
 function getPreviewImage(html: unknown): string | null {
@@ -30,13 +20,12 @@ export default function DiaryEntryCard({ entry, onEdit, onDelete }: Props) {
   const [showConfirm, setShowConfirm] = useState(false)
 
   const mood      = MOODS.find(m => m.key === entry.mood) || MOODS[2]
-  const dateStr   = entry.date.includes('T') ? entry.date.split('T')[0] : entry.date
+  const dateStr   = entryDay(entry)
   // Preferir campo time separado; si no, intentar extraerlo del date (legacy)
-  const timeStr   = entry.time
-    || (entry.date.includes('T') ? entry.date.split('T')[1].slice(0, 5) : null)
+  const timeStr   = entryTime(entry)
   const date      = new Date(dateStr + 'T12:00:00')
   const label     = date.toLocaleDateString('es-VE', { weekday: 'long', day: 'numeric', month: 'long' })
-  const preview   = stripHtml(entry.content)
+  const preview   = diaryPlainText(entry.content).slice(0, 240)
   const image     = getPreviewImage(entry.content)
 
   return (
@@ -50,7 +39,7 @@ export default function DiaryEntryCard({ entry, onEdit, onDelete }: Props) {
     >
       {/* IMAGEN PREVIEW */}
       {image && (
-        <div style={{ height: '120px', overflow: 'hidden' }}>
+        <div onClick={onEdit} style={{ height: '120px', overflow: 'hidden', cursor: 'pointer' }}>
           <img
             src={image} alt=""
             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
@@ -69,16 +58,17 @@ export default function DiaryEntryCard({ entry, onEdit, onDelete }: Props) {
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', minWidth: 0, flex: 1 }}>
           <span style={{ fontSize: '20px', flexShrink: 0 }}>{mood.emoji}</span>
           <div style={{ minWidth: 0 }}>
-            <div style={{
-              fontSize: '14px', fontWeight: 600, color: '#F1F5F9',
-              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-              marginBottom: '3px',
+            <button onClick={onEdit} style={{
+              display: 'block', textAlign: 'left', padding: 0, background: 'none', border: 'none',
+              fontSize: '14px', fontWeight: 600, color: '#F1F5F9', cursor: 'pointer',
+              lineHeight: 1.35, overflowWrap: 'anywhere', marginBottom: '3px',
+              fontFamily: 'inherit',
             }}>
               {entry.title}
-            </div>
+            </button>
             <div style={{
-              display: 'flex', alignItems: 'center', gap: '4px',
-              fontSize: '11px', color: '#374151', textTransform: 'capitalize',
+              display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap',
+              fontSize: '11px', color: '#64748B', textTransform: 'capitalize',
             }}>
               <Calendar size={10} />
               {label}
@@ -92,6 +82,8 @@ export default function DiaryEntryCard({ entry, onEdit, onDelete }: Props) {
         <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
           <button
             onClick={onEdit}
+            title="Editar entrada"
+            aria-label="Editar entrada"
             style={{
               width: '30px', height: '30px', borderRadius: '8px',
               background: '#00F5FF12', border: '1px solid #00F5FF22',
@@ -104,6 +96,8 @@ export default function DiaryEntryCard({ entry, onEdit, onDelete }: Props) {
           </button>
           <button
             onClick={() => setShowConfirm(true)}
+            title="Eliminar entrada"
+            aria-label="Eliminar entrada"
             style={{
               width: '30px', height: '30px', borderRadius: '8px',
               background: '#FF386012', border: '1px solid #FF386022',
@@ -119,9 +113,9 @@ export default function DiaryEntryCard({ entry, onEdit, onDelete }: Props) {
 
       {/* PREVIEW DEL CONTENIDO */}
       {preview && (
-        <div style={{ padding: '12px 16px' }}>
+        <div onClick={onEdit} style={{ padding: '12px 16px', cursor: 'pointer' }}>
           <p style={{
-            fontSize: '13px', color: '#64748B',
+            fontSize: '13px', color: '#94A3B8',
             lineHeight: 1.6, margin: 0,
             display: '-webkit-box',
             WebkitLineClamp: 3,

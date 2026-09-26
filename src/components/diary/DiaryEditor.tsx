@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import ImageExt from '@tiptap/extension-image'
@@ -11,7 +11,7 @@ import Typography from '@tiptap/extension-typography'
 import TaskList from '@tiptap/extension-task-list'
 import TaskItem from '@tiptap/extension-task-item'
 import CharacterCount from '@tiptap/extension-character-count'
-import { DiaryEntry, MOODS } from '@/lib/diary'
+import { DiaryEntry, MOODS, compressImage } from '@/lib/diary'
 import { createClient } from '@/lib/supabase'
 import BubbleMenuBar from './BubbleMenuBar'
 import FloatingMenuBar from './FloatingMenuBar'
@@ -32,8 +32,15 @@ export default function DiaryEditor({ entry, date, timezone, userId, onSave, onC
   const [loading,   setLoading]   = useState(false)
   const [uploading, setUploading] = useState(false)
   const [autoSaved, setAutoSaved] = useState(false)
+  const [saveError, setSaveError] = useState('')
   const fileRef                   = useRef<HTMLInputElement>(null)
   const autoSaveTimer             = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Hay cambios sin guardar con el botón Guardar (para avisar antes de cerrar)
+  const dirty                     = useRef(false)
+  // El autoguardado corre desde un callback que TipTap crea una sola vez:
+  // el título se lee por ref para no usar un valor viejo.
+  const titleRef                  = useRef(title)
+  titleRef.current                = title
 
   const [entryDate, setEntryDate] = useState<string>(() => {
     const src = entry?.date || date
@@ -81,6 +88,7 @@ export default function DiaryEditor({ entry, date, timezone, userId, onSave, onC
       },
     },
     onUpdate: () => {
+      dirty.current = true
       if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current)
       autoSaveTimer.current = setTimeout(() => {
         handleAutoSave()
@@ -88,26 +96,71 @@ export default function DiaryEditor({ entry, date, timezone, userId, onSave, onC
     },
   })
 
+  // Al cerrar el editor se cancela el autoguardado pendiente
+  useEffect(() => () => {
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current)
+  }, [])
+
   async function handleAutoSave() {
-    if (!editor || !title.trim() || !entry) return
+    if (!editor || editor.isDestroyed || !titleRef.current.trim() || !entry) return
     const supabase = createClient()
-    await supabase
+    const { error } = await supabase
       .from('diary_entries')
       .update({ content: editor.getHTML(), updated_at: new Date().toISOString() })
       .eq('id', entry.id)
+    if (error) return
     setAutoSaved(true)
     setTimeout(() => setAutoSaved(false), 2000)
+  }
+
+  // Cerrar sin perder trabajo: si hay cambios sin guardar se pide confirmación
+  function handleClose() {
+    if (dirty.current && !window.confirm('Tienes cambios sin guardar. ¿Salir sin guardar?')) return
+    onCancel()
+  }
+
+  // Atajos de teclado: Ctrl/Cmd+S guarda, Esc cierra
+  const saveRef  = useRef<() => void>(() => {})
+  const closeRef = useRef<() => void>(() => {})
+  useEffect(() => {
+    saveRef.current  = handleSave
+    closeRef.current = handleClose
+  })
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault()
+        saveRef.current()
+      } else if (e.key === 'Escape') {
+        closeRef.current()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
+  function insertImage(src: string) {
+    editor?.chain().focus().setImage({ src }).run()
+    dirty.current = true
   }
 
   async function handleImageUpload(file: File) {
     if (!file || !editor) return
     setUploading(true)
 
+    // Primero se reduce la foto: casi siempre queda por debajo de 2 MB y se
+    // incrusta en la entrada (privada) en vez de subirla al bucket público.
+    const compressed = await compressImage(file)
+    if (compressed && compressed.length * 0.75 < 2 * 1024 * 1024) {
+      insertImage(compressed)
+      setUploading(false)
+      return
+    }
+
     if (file.size < 2 * 1024 * 1024) {
       const reader = new FileReader()
       reader.onload = (e) => {
-        const src = e.target?.result as string
-        editor.chain().focus().setImage({ src }).run()
+        insertImage(e.target?.result as string)
         setUploading(false)
       }
       reader.readAsDataURL(file)
@@ -128,11 +181,11 @@ export default function DiaryEditor({ entry, date, timezone, userId, onSave, onC
         .from('diary-images')
         .getPublicUrl(filename)
 
-      editor.chain().focus().setImage({ src: url.publicUrl }).run()
+      insertImage(url.publicUrl)
     } catch {
       const reader = new FileReader()
       reader.onload = (e) => {
-        editor.chain().focus().setImage({ src: e.target?.result as string }).run()
+        insertImage(e.target?.result as string)
       }
       reader.readAsDataURL(file)
     }
@@ -140,8 +193,10 @@ export default function DiaryEditor({ entry, date, timezone, userId, onSave, onC
   }
 
   async function handleSave() {
-    if (!editor || !title.trim()) return
+    if (!editor || !title.trim() || loading) return
     setLoading(true)
+    setSaveError('')
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current)
     const supabase = createClient()
     const payload  = {
       user_id:  userId,
@@ -153,27 +208,26 @@ export default function DiaryEditor({ entry, date, timezone, userId, onSave, onC
       timezone,
     }
 
-    let saved: DiaryEntry | null = null
+    const { data: saved, error } = entry
+      ? await supabase
+          .from('diary_entries')
+          .update({ ...payload, updated_at: new Date().toISOString() })
+          .eq('id', entry.id)
+          .select()
+          .single()
+      : await supabase
+          .from('diary_entries')
+          .insert(payload)
+          .select()
+          .single()
 
-    if (entry) {
-      const { data } = await supabase
-        .from('diary_entries')
-        .update({ ...payload, updated_at: new Date().toISOString() })
-        .eq('id', entry.id)
-        .select()
-        .single()
-      saved = data
-    } else {
-      const { data } = await supabase
-        .from('diary_entries')
-        .insert(payload)
-        .select()
-        .single()
-      saved = data
-    }
-
-    if (saved) onSave(saved)
     setLoading(false)
+    if (error || !saved) {
+      setSaveError('No se pudo guardar. Revisa tu conexión e inténtalo de nuevo; tu texto sigue aquí.')
+      return
+    }
+    dirty.current = false
+    onSave(saved as DiaryEntry)
   }
 
   const currentMood = MOODS.find(m => m.key === mood) || MOODS[2]
@@ -209,11 +263,11 @@ export default function DiaryEditor({ entry, date, timezone, userId, onSave, onC
         {/* MOODS */}
         <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
           {MOODS.map(m => (
-            <button key={m.key} onClick={() => setMood(m.key)} style={{
+            <button key={m.key} onClick={() => { setMood(m.key); dirty.current = true }} title={m.label} aria-pressed={mood === m.key} style={{
               padding: '4px 10px', borderRadius: '20px',
               border: `1px solid ${mood === m.key ? m.color + '66' : '#1F2937'}`,
               background: mood === m.key ? m.color + '15' : 'transparent',
-              color: mood === m.key ? m.color : '#374151',
+              color: mood === m.key ? m.color : '#64748B',
               fontSize: '12px', cursor: 'pointer',
               transition: 'all 0.15s',
             }}>
@@ -235,6 +289,7 @@ export default function DiaryEditor({ entry, date, timezone, userId, onSave, onC
           )}
           <button
             onClick={() => fileRef.current?.click()}
+            title="Insertar imagen"
             style={{
               display: 'flex', alignItems: 'center', gap: '6px',
               padding: '7px 12px', borderRadius: '8px',
@@ -247,7 +302,9 @@ export default function DiaryEditor({ entry, date, timezone, userId, onSave, onC
             <span className="img-label">Imagen</span>
           </button>
           <button
-            onClick={onCancel}
+            onClick={handleClose}
+            title="Cerrar (Esc)"
+            aria-label="Cerrar editor"
             style={{
               width: '32px', height: '32px', borderRadius: '8px',
               background: 'transparent', border: '1px solid #1F2937',
@@ -260,6 +317,7 @@ export default function DiaryEditor({ entry, date, timezone, userId, onSave, onC
           <button
             onClick={handleSave}
             disabled={loading || !title.trim()}
+            title={title.trim() ? 'Guardar (Ctrl+S)' : 'Escribe un título para poder guardar'}
             style={{
               display: 'flex', alignItems: 'center', gap: '6px',
               padding: '7px 16px', borderRadius: '8px',
@@ -290,7 +348,7 @@ export default function DiaryEditor({ entry, date, timezone, userId, onSave, onC
           <input
             type="date"
             value={entryDate}
-            onChange={e => setEntryDate(e.target.value)}
+            onChange={e => { setEntryDate(e.target.value); dirty.current = true }}
             style={{
               background: '#0d1120', border: '1px solid #1F2937',
               borderRadius: '6px', color: '#64748B',
@@ -302,7 +360,7 @@ export default function DiaryEditor({ entry, date, timezone, userId, onSave, onC
           <input
             type="time"
             value={entryTime}
-            onChange={e => setEntryTime(e.target.value)}
+            onChange={e => { setEntryTime(e.target.value); dirty.current = true }}
             style={{
               background: '#0d1120', border: '1px solid #1F2937',
               borderRadius: '6px', color: '#64748B',
@@ -311,7 +369,7 @@ export default function DiaryEditor({ entry, date, timezone, userId, onSave, onC
               cursor: 'pointer', colorScheme: 'dark',
             }}
           />
-          <span style={{ fontSize: '12px', color: '#374151' }}>
+          <span style={{ fontSize: '12px', color: '#64748B' }}>
             · {currentMood.emoji} {currentMood.label}
           </span>
         </div>
@@ -319,8 +377,14 @@ export default function DiaryEditor({ entry, date, timezone, userId, onSave, onC
         {/* TÍTULO */}
         <input
           value={title}
-          onChange={e => setTitle(e.target.value)}
+          onChange={e => { setTitle(e.target.value); dirty.current = true }}
+          onKeyDown={e => {
+            // Enter en el título salta al cuerpo de la entrada
+            if (e.key === 'Enter') { e.preventDefault(); editor?.commands.focus('start') }
+          }}
+          autoFocus={!entry}
           placeholder="Título de la entrada..."
+          aria-label="Título de la entrada"
           style={{
             width: '100%', background: 'transparent',
             border: 'none', outline: 'none',
@@ -334,8 +398,17 @@ export default function DiaryEditor({ entry, date, timezone, userId, onSave, onC
 
         <div style={{ height: '1px', background: '#1F2937' }} />
 
-        <div style={{ fontSize: '11px', color: '#1F2937', fontStyle: 'italic' }}>
-          Selecciona texto → opciones de formato · Línea vacía → menú de bloques
+        {saveError && (
+          <div role="alert" style={{
+            padding: '10px 14px', borderRadius: '8px', fontSize: '13px',
+            background: '#FF386015', border: '1px solid #FF386033', color: '#FF3860',
+          }}>
+            {saveError}
+          </div>
+        )}
+
+        <div style={{ fontSize: '11px', color: '#475569', fontStyle: 'italic' }}>
+          Selecciona texto → formato · Línea vacía → bloques · Ctrl+S guarda · Esc cierra
         </div>
 
         {/* MENÚS FLOTANTES */}
@@ -354,7 +427,7 @@ export default function DiaryEditor({ entry, date, timezone, userId, onSave, onC
         {/* CONTEO */}
         {editor && (
           <div style={{
-            fontSize: '11px', color: '#374151',
+            fontSize: '11px', color: '#64748B',
             textAlign: 'right', paddingTop: '8px',
             borderTop: '1px solid #1F2937',
           }}>

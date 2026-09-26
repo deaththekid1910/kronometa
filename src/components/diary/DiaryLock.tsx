@@ -65,11 +65,20 @@ export default function DiaryLock({ hasPin, pinHash, onUnlock }: Props) {
     setLoading(true)
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
+    if (!user) {
+      setError('Tu sesión expiró. Vuelve a iniciar sesión.')
+      setLoading(false)
+      return
+    }
     const hash = await hashPassword(password)
-    await supabase.from('diary_settings').upsert({ user_id: user.id, pin_hash: hash })
-    onUnlock()
+    const { error: saveError } = await supabase.from('diary_settings').upsert({ user_id: user.id, pin_hash: hash })
     setLoading(false)
+    // Si la clave no se guardó, no se abre el diario: evitaría quedar sin clave
+    if (saveError) {
+      setError('No se pudo guardar la clave. Inténtalo de nuevo.')
+      return
+    }
+    onUnlock()
   }
 
   const strengthColors = ['#374151', '#FF3860', '#FFB800', '#00F5FF', '#00FF88', '#B026FF']
@@ -151,16 +160,21 @@ export default function DiaryLock({ hasPin, pinHash, onUnlock }: Props) {
               'Tu clave secreta'
             }
             autoFocus
+            autoComplete={step === 'enter' ? 'current-password' : 'new-password'}
+            aria-label="Clave del diario"
             style={inputStyle}
             onFocus={e => e.target.style.borderColor = '#00F5FF44'}
             onBlur={e => e.target.style.borderColor = '#1F2937'}
           />
           <button
+            type="button"
             onClick={() => setShowPass(p => !p)}
+            title={showPass ? 'Ocultar clave' : 'Mostrar clave'}
+            aria-label={showPass ? 'Ocultar clave' : 'Mostrar clave'}
             style={{
               position: 'absolute', right: '12px', top: '50%',
               transform: 'translateY(-50%)',
-              background: 'none', border: 'none', color: '#374151',
+              background: 'none', border: 'none', color: '#64748B',
               cursor: 'pointer', display: 'flex', padding: '4px',
             }}
           >
@@ -210,7 +224,7 @@ export default function DiaryLock({ hasPin, pinHash, onUnlock }: Props) {
             transition: 'all 0.2s',
           }}
         >
-          {loading ? 'Verificando...' :
+          {loading ? (step === 'enter' ? 'Verificando...' : 'Guardando...') :
            step === 'enter'   ? '🔓 Entrar al diario' :
            step === 'create'  ? 'Continuar →' :
            '✓ Crear clave y entrar'}

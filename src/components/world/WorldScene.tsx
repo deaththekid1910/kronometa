@@ -1,11 +1,20 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import Link from 'next/link'
 import { GoalWithStats, SubGoal } from '@/types'
-import GoalWorld from './GoalWorld'
+import GoalWorld, { firstPendingIndex, currentXPercent } from './GoalWorld'
 import DeadlineCard from '@/components/goals/DeadlineCard'
 import TimerWidget from '@/components/timer/TimerWidget'
-import { ChevronLeft, ChevronRight, Target } from 'lucide-react'
+import { useTimerStore } from '@/store/timerStore'
+import { getElapsedSeconds } from '@/lib/timer'
+import { ChevronLeft, ChevronRight, Target, ExternalLink } from 'lucide-react'
+
+// Ancho mínimo de la escena según el número de submetas: con muchas, la escena
+// se desplaza en horizontal en vez de amontonar nodos y títulos (sobre todo en
+// móvil).
+const PX_PER_NODE = 120
+const SCENE_EXTRA = 260
 
 interface Props {
   goals: GoalWithStats[]
@@ -15,6 +24,29 @@ interface Props {
 export default function WorldScene({ goals, totalSecondsByGoal }: Props) {
   const [activeIdx, setActiveIdx]     = useState(0)
   const [selectedSG, setSelectedSG]   = useState<SubGoal | null>(null)
+  const sceneRef                      = useRef<HTMLDivElement>(null)
+
+  // Tiempo en vivo: lo cerrado viene de la página y la sesión en curso (si el
+  // cronómetro de esta meta está corriendo) se suma aquí cada segundo.
+  const activeGoal = goals[Math.min(activeIdx, Math.max(goals.length - 1, 0))]
+  const session    = useTimerStore(s => (activeGoal ? s.sessions[activeGoal.id] : undefined))
+  useTimerStore(s => (session ? s.now : 0))
+
+  // Centra la vista en la submeta actual al cambiar de meta
+  useEffect(() => {
+    const el = sceneRef.current
+    if (!el || !activeGoal) return
+    const pct = currentXPercent(activeGoal.sub_goals || [])
+    el.scrollTo({ left: Math.max(0, (el.scrollWidth * pct) / 100 - el.clientWidth / 2), behavior: 'smooth' })
+  }, [activeGoal?.id])
+
+  // Esc cierra el detalle de la submeta
+  useEffect(() => {
+    if (!selectedSG) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setSelectedSG(null) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [selectedSG])
 
   if (goals.length === 0) return (
     <div style={{
@@ -31,11 +63,13 @@ export default function WorldScene({ goals, totalSecondsByGoal }: Props) {
     </div>
   )
 
-  const goal = goals[activeIdx]
+  const goal = activeGoal
   const subGoals   = goal.sub_goals || []
   const completed  = subGoals.filter(sg => sg.completed_at).length
   const total      = subGoals.length
   const progress   = total > 0 ? Math.round((completed / total) * 100) : 0
+  const current    = firstPendingIndex(subGoals)
+  const liveSecs   = (totalSecondsByGoal[goal.id] || 0) + (session ? getElapsedSeconds(session) : 0)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -79,19 +113,28 @@ export default function WorldScene({ goals, totalSecondsByGoal }: Props) {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-          <div style={{ display: 'flex', gap: '6px' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', maxWidth: '180px' }}>
             {goals.map((g, i) => (
               <button
                 key={g.id}
                 onClick={() => setActiveIdx(i)}
+                title={g.title}
+                aria-label={`Ver mundo de ${g.title}`}
+                aria-current={i === activeIdx}
                 style={{
-                  width: '8px', height: '8px', borderRadius: '50%',
+                  // zona táctil de 20px con el punto de 8px en el centro
+                  width: '20px', height: '20px', padding: 0,
+                  background: 'transparent', border: 'none', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}
+              >
+                <span style={{
+                  width: i === activeIdx ? '10px' : '8px', height: i === activeIdx ? '10px' : '8px', borderRadius: '50%',
                   background: i === activeIdx ? g.color : 'var(--border)',
-                  border: 'none', cursor: 'pointer',
                   boxShadow: i === activeIdx ? `0 0 6px ${g.color}` : 'none',
                   transition: 'all var(--transition)',
-                }}
-              />
+                }} />
+              </button>
             ))}
           </div>
 
@@ -126,14 +169,24 @@ export default function WorldScene({ goals, totalSecondsByGoal }: Props) {
         />
       )}
 
-      {/* ESCENA PRINCIPAL */}
-      <div style={{ height: '460px' }}>
-        <GoalWorld
-          goal={goal}
-          totalSeconds={totalSecondsByGoal[goal.id] || 0}
-          onSubGoalClick={sg => setSelectedSG(sg)}
-        />
+      {/* ESCENA PRINCIPAL — se desplaza en horizontal si hay muchas submetas */}
+      <div ref={sceneRef} style={{
+        height: '460px', overflowX: 'auto', overflowY: 'hidden',
+        borderRadius: 'var(--radius-lg)', scrollbarWidth: 'thin',
+      }}>
+        <div style={{ height: '100%', minWidth: `${total * PX_PER_NODE + SCENE_EXTRA}px` }}>
+          <GoalWorld
+            goal={goal}
+            totalSeconds={liveSecs}
+            onSubGoalClick={sg => setSelectedSG(sg)}
+          />
+        </div>
       </div>
+      {total * PX_PER_NODE + SCENE_EXTRA > 700 && (
+        <div style={{ fontSize: '11px', color: 'var(--muted)', textAlign: 'center', marginTop: '-4px' }}>
+          ← Desliza la escena para ver todo el camino →
+        </div>
+      )}
 
       {/* LISTA DE SUBMETAS */}
       {subGoals.length > 0 && (
@@ -146,7 +199,11 @@ export default function WorldScene({ goals, totalSecondsByGoal }: Props) {
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             {subGoals.map((sg, i) => (
-              <div key={sg.id} style={{
+              <div key={sg.id}
+                role="button"
+                tabIndex={0}
+                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedSG(sg) } }}
+                style={{
                 display: 'flex', alignItems: 'center', gap: '10px',
                 padding: '10px 12px', borderRadius: 'var(--radius-sm)',
                 background: sg.completed_at ? `${goal.color}08` : 'var(--surface2)',
@@ -175,7 +232,7 @@ export default function WorldScene({ goals, totalSecondsByGoal }: Props) {
                 }}>
                   {sg.title}
                 </span>
-                {i === completed && !sg.completed_at && (
+                {i === current && (
                   <span style={{
                     fontSize: '10px', color: goal.color,
                     background: goal.color + '15', border: `1px solid ${goal.color}33`,
@@ -197,6 +254,9 @@ export default function WorldScene({ goals, totalSecondsByGoal }: Props) {
       {selectedSG && (
         <div
           onClick={() => setSelectedSG(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-label={selectedSG.title}
           style={{
             position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)',
             backdropFilter: 'blur(4px)', zIndex: 50,
@@ -215,7 +275,7 @@ export default function WorldScene({ goals, totalSecondsByGoal }: Props) {
             <div style={{ fontSize: '10px', color: goal.color, letterSpacing: '1px', marginBottom: '8px' }}>
               SUBMETA #{(subGoals.findIndex(s => s.id === selectedSG.id) + 1).toString().padStart(2, '0')}
             </div>
-            <div style={{ fontSize: '16px', fontWeight: 600, marginBottom: '8px' }}>
+            <div style={{ fontSize: '16px', fontWeight: 600, marginBottom: '8px', lineHeight: 1.35, overflowWrap: 'anywhere' }}>
               {selectedSG.title}
             </div>
             {selectedSG.description && (
@@ -242,17 +302,31 @@ export default function WorldScene({ goals, totalSecondsByGoal }: Props) {
                 }
               </span>
             </div>
-            <button
-              onClick={() => setSelectedSG(null)}
-              style={{
-                marginTop: '16px', width: '100%', padding: '10px',
-                background: goal.color + '15', border: `1px solid ${goal.color}33`,
-                borderRadius: 'var(--radius-sm)', color: goal.color,
-                fontSize: '13px', cursor: 'pointer',
-              }}
-            >
-              Cerrar
-            </button>
+            <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
+              <Link
+                href={`/goals/${goal.id}`}
+                style={{
+                  flex: 1, padding: '10px', textAlign: 'center', textDecoration: 'none',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                  background: goal.color, border: 'none',
+                  borderRadius: 'var(--radius-sm)', color: '#0A0E1A',
+                  fontSize: '13px', fontWeight: 600,
+                }}
+              >
+                <ExternalLink size={13} /> Abrir meta
+              </Link>
+              <button
+                onClick={() => setSelectedSG(null)}
+                style={{
+                  flex: 1, padding: '10px',
+                  background: goal.color + '15', border: `1px solid ${goal.color}33`,
+                  borderRadius: 'var(--radius-sm)', color: goal.color,
+                  fontSize: '13px', cursor: 'pointer',
+                }}
+              >
+                Cerrar
+              </button>
+            </div>
           </div>
         </div>
       )}

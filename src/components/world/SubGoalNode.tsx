@@ -24,6 +24,11 @@ export default function SubGoalNode({
   return (
     <div
       onClick={onClick}
+      role="button"
+      tabIndex={0}
+      aria-label={`Submeta ${index + 1}: ${subGoal.title}${done ? ' (completada)' : isCurrent ? ' (actual)' : ''}`}
+      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick() } }}
+      title={subGoal.title}
       style={{
         position: 'absolute',
         left: `${xPos}%`,
@@ -74,7 +79,7 @@ export default function SubGoalNode({
       {/* TÍTULO — vista previa debajo de cada paso */}
       <div style={{
         display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px',
-        maxWidth: '96px',
+        maxWidth: '110px',
       }}>
         <span style={{
           fontSize: '8px', fontFamily: 'var(--font-mono)',
@@ -88,8 +93,9 @@ export default function SubGoalNode({
           fontWeight: isCurrent ? 600 : done ? 500 : 400,
           color: isCurrent ? color : done ? 'var(--text)' : 'var(--muted)',
           textAlign: 'center',
-          maxWidth: '96px',
-          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          maxWidth: '110px', lineHeight: 1.3, overflowWrap: 'anywhere',
+          // hasta 2 líneas; el título completo se ve al tocar el nodo
+          display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
           textDecoration: done ? 'line-through' : 'none',
           opacity: done ? 0.85 : 1,
           padding: '2px 7px', borderRadius: '7px',
@@ -102,12 +108,7 @@ export default function SubGoalNode({
         </span>
       </div>
 
-      <style>{`
-        @keyframes node-pulse {
-          0%,100% { box-shadow: 0 0 20px ${color}66, 0 0 40px ${color}22; }
-          50%      { box-shadow: 0 0 30px ${color}99, 0 0 60px ${color}44; }
-        }
-      `}</style>
+      {/* La animación node-pulse la define GoalWorld (una sola vez por escena) */}
     </div>
   )
 }

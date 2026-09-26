@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useBreakpoint } from '@/hooks/useBreakpoint'
 import { GoalWithStats, SubGoal } from '@/types'
-import { getTotalSeconds } from '@/lib/timer'
+import { useTimerStore } from '@/store/timerStore'
 import WorldScene from '@/components/world/WorldScene'
 import { Globe } from 'lucide-react'
 
@@ -15,12 +15,34 @@ export default function WorldPage() {
   const bp       = useBreakpoint()
   const isMobile = bp === 'mobile'
 
+  // Al iniciar o detener cualquier cronómetro se recalcula el tiempo cerrado;
+  // el de la sesión en curso lo suma WorldScene en vivo.
+  const runningKey = useTimerStore(s => Object.keys(s.sessions).sort().join(','))
+
   useEffect(() => { loadData() }, [])
+  useEffect(() => { if (!loading) loadTimes(goals.map(g => g.id)) }, [runningKey])
+
+  // Tiempo de sesiones YA cerradas por meta (las activas se cuentan en vivo)
+  async function loadTimes(goalIds: string[]) {
+    if (goalIds.length === 0) { setTotalSecs({}); return }
+    const supabase = createClient()
+    const { data: allSessions } = await supabase
+      .from('timer_sessions')
+      .select('goal_id, elapsed_seconds, is_active')
+      .in('goal_id', goalIds)
+
+    const secsMap: Record<string, number> = {}
+    for (const s of allSessions || []) {
+      if (s.is_active) continue
+      secsMap[s.goal_id] = (secsMap[s.goal_id] || 0) + (s.elapsed_seconds || 0)
+    }
+    setTotalSecs(secsMap)
+  }
 
   async function loadData() {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return
+  if (!user) { setLoading(false); return }
 
   const { data } = await supabase
     .from('goals')
@@ -37,22 +59,7 @@ export default function WorldPage() {
       avatar_state: g.avatar_state?.[0],
     }))
     setGoals(goals)
-
-    // Todas las queries de tiempo EN PARALELO
-    const { data: allSessions } = await supabase
-      .from('timer_sessions')
-      .select('goal_id, elapsed_seconds, started_at, is_active')
-      .in('goal_id', goals.map(g => g.id))
-
-    const secsMap: Record<string, number> = {}
-    for (const s of allSessions || []) {
-      let secs = s.elapsed_seconds || 0
-      if (s.is_active && s.started_at) {
-        secs += Math.floor((Date.now() - new Date(s.started_at).getTime()) / 1000)
-      }
-      secsMap[s.goal_id] = (secsMap[s.goal_id] || 0) + secs
-    }
-    setTotalSecs(secsMap)
+    await loadTimes(goals.map(g => g.id))
   }
   setLoading(false)
 }

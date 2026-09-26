@@ -1,6 +1,5 @@
 'use client'
 
-import { useState } from 'react'
 import { GoalWithStats, SubGoal } from '@/types'
 import AvatarCharacter from './AvatarCharacter'
 import SubGoalNode from './SubGoalNode'
@@ -89,6 +88,14 @@ function getNodePosition(i: number, total: number): { x: number; y: number } {
   return { x: Math.max(15, Math.min(90, x)), y: Math.max(42, Math.min(72, y)) }
 }
 
+// Primera submeta pendiente (la "actual"). Si se completaron submetas fuera
+// de orden, el avatar se queda antes de la primera que falta en lugar de usar
+// el conteo de completadas, que lo ponía en un nodo equivocado.
+export function firstPendingIndex(subGoals: SubGoal[]): number {
+  const i = subGoals.findIndex(sg => !sg.completed_at)
+  return i === -1 ? subGoals.length : i
+}
+
 // Posición del avatar según progreso
 function getAvatarPosition(currentIdx: number, total: number, subGoals: SubGoal[]): { x: number; y: number } {
   const allDone = total > 0 && subGoals.every(sg => sg.completed_at)
@@ -99,9 +106,18 @@ function getAvatarPosition(currentIdx: number, total: number, subGoals: SubGoal[
   // Punto de inicio si no ha completado nada
   if (currentIdx === 0) return { x: START_X, y: START_Y }
 
-  // Posición de la última submeta completada
+  // Posición de la submeta anterior a la actual
   const pos = getNodePosition(currentIdx - 1, total)
   return { x: pos.x, y: pos.y }
+}
+
+// Posición horizontal (en %) de la submeta actual, para centrar la vista
+export function currentXPercent(subGoals: SubGoal[]): number {
+  const total = subGoals.length
+  if (total === 0) return 0
+  const cur = firstPendingIndex(subGoals)
+  if (cur >= total) return 40            // todo completo: panel de victoria
+  return getNodePosition(cur, total).x
 }
 
 export default function GoalWorld({ goal, totalSeconds, onSubGoalClick }: Props) {
@@ -113,7 +129,8 @@ export default function GoalWorld({ goal, totalSeconds, onSubGoalClick }: Props)
   const color     = goal.color
   const theme     = getTheme(color)
 
-  const avatarPos = getAvatarPosition(completed, total, subGoals)
+  const current   = firstPendingIndex(subGoals)
+  const avatarPos = getAvatarPosition(current, total, subGoals)
 
   return (
     <div style={{
@@ -269,7 +286,7 @@ export default function GoalWorld({ goal, totalSeconds, onSubGoalClick }: Props)
             total={total}
             color={color}
             isActive={false}
-            isCurrent={i === completed && !sg.completed_at}
+            isCurrent={i === current}
             xPos={pos.x}
             yPos={pos.y}
             onClick={() => onSubGoalClick(sg)}
@@ -309,9 +326,10 @@ export default function GoalWorld({ goal, totalSeconds, onSubGoalClick }: Props)
           </div>
           <span style={{ fontSize: '26px' }}>{allDone ? '🏆' : '🏰'}</span>
         </div>
-        <div style={{
-          fontSize: '9px', color: 'var(--muted)', textAlign: 'center',
-          maxWidth: '80px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        <div title={goal.title} style={{
+          fontSize: '10px', color: 'var(--muted)', textAlign: 'center',
+          maxWidth: '110px', lineHeight: 1.3, overflowWrap: 'anywhere',
+          display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
         }}>
           {goal.title}
         </div>
@@ -369,7 +387,7 @@ export default function GoalWorld({ goal, totalSeconds, onSubGoalClick }: Props)
             fontSize: '15px', fontWeight: 700, color,
             marginBottom: '4px', letterSpacing: '0.5px',
           }}>¡Lo lograste!</div>
-          <div style={{ fontSize: '11px', color: 'var(--muted)', marginBottom: '10px' }}>
+          <div style={{ fontSize: '11px', color: 'var(--muted)', marginBottom: '10px', maxWidth: '240px', lineHeight: 1.4, overflowWrap: 'anywhere' }}>
             {goal.title}
           </div>
           <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>

@@ -63,6 +63,9 @@ export function getLevelInfo(totalXP: number): LevelInfo {
 // XP otorgado por cada tarea diaria completada
 export const DAILY_TASK_XP = 15
 
+// XP otorgado por cada meta de ahorro lograda (Almacén)
+export const SAVINGS_GOAL_XP = 100
+
 export async function getUserXP(userId: string): Promise<number> {
   const supabase = createClient()
   const { data: avatar } = await supabase
@@ -81,6 +84,15 @@ export async function getUserXP(userId: string): Promise<number> {
     .not('completed_at', 'is', null)
 
   total += (count || 0) * DAILY_TASK_XP
+
+  // XP de metas de ahorro logradas (Almacén). Sin la tabla, count es nulo.
+  const { count: savingsDone } = await supabase
+    .from('savings_goals')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .not('completed_at', 'is', null)
+
+  total += (savingsDone || 0) * SAVINGS_GOAL_XP
 
   return total
 }

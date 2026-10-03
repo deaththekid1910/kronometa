@@ -3,19 +3,23 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
+import { useBreakpoint } from '@/hooks/useBreakpoint'
 import { GoalWithStats } from '@/types'
+import { localDateKey, daysAgoKey, currentStreak, lastDays } from '@/lib/dates'
 import HabitCard from '@/components/habits/HabitCard'
 import HabitLogModal from '@/components/habits/HabitLogModal'
 import CreateGoalModal from '@/components/goals/CreateGoalModal'
 import EditGoalModal from '@/components/goals/EditGoalModal'
 import Button from '@/components/ui/Button'
-import Badge from '@/components/ui/Badge'
-import { Repeat2, Plus } from 'lucide-react'
+import { Panel, StatRow, PageHeader, PageShell, ModalBackdrop } from '@/components/ui/Layout'
+import { Repeat2, Plus, Circle, CheckCircle2 } from 'lucide-react'
+
+const ACCENT = '#00FF88'
 
 export default function HabitsPage() {
   const router = useRouter()
   const [habits, setHabits]         = useState<GoalWithStats[]>([])
-  const [logs, setLogs]             = useState<Record<string, { logged_date: string }[]>>({})
+  const [logs, setLogs]             = useState<Record<string, Set<string>>>({})
   const [userId, setUserId]         = useState<string>('')
   const [loading, setLoading]       = useState(true)
   const [logTarget, setLogTarget]   = useState<GoalWithStats | null>(null)
@@ -23,6 +27,11 @@ export default function HabitsPage() {
   const [editTarget, setEditTarget]     = useState<GoalWithStats | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<GoalWithStats | null>(null)
   const [deleting, setDeleting]         = useState(false)
+
+  const bp        = useBreakpoint()
+  const isMobile  = bp === 'mobile'
+  const isDesktop = bp === 'desktop'
+  const today     = localDateKey()
 
   async function handleConfirmDelete() {
     if (!deleteTarget) return
@@ -39,7 +48,7 @@ export default function HabitsPage() {
   async function loadHabits() {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
+    if (!user) { setLoading(false); return }
     setUserId(user.id)
 
     const { data } = await supabase
@@ -52,44 +61,28 @@ export default function HabitsPage() {
 
     if (data) {
       setHabits(data)
-      const logsMap: Record<string, { logged_date: string }[]> = {}
-      for (const h of data) {
-        const { data: hLogs } = await supabase
+      // Una sola consulta para los registros de todos los hábitos (antes era
+      // una por hábito). Basta con el último año para calcular las rachas.
+      const logsMap: Record<string, Set<string>> = {}
+      for (const h of data) logsMap[h.id] = new Set()
+      if (data.length > 0) {
+        const { data: allLogs } = await supabase
           .from('habit_logs')
-          .select('logged_date')
-          .eq('goal_id', h.id)
-          .order('logged_date', { ascending: false })
-          .limit(60)
-        logsMap[h.id] = hLogs || []
+          .select('goal_id, logged_date')
+          .in('goal_id', data.map(h => h.id))
+          .gte('logged_date', daysAgoKey(366))
+        for (const l of allLogs || []) logsMap[l.goal_id]?.add(l.logged_date)
       }
       setLogs(logsMap)
     }
     setLoading(false)
   }
 
-  function getStreak(goalId: string): number {
-    const habitLogs = logs[goalId] || []
-    const logDates  = new Set(habitLogs.map(l => l.logged_date))
-    let streak = 0
-    for (let i = 0; i <= 365; i++) {
-      const d = new Date()
-      d.setDate(d.getDate() - i)
-      const key = d.toISOString().split('T')[0]
-      if (logDates.has(key)) {
-        streak++
-      } else if (i > 0) {
-        break
-      }
-    }
-    return streak
-  }
+  const datesOf          = (id: string) => logs[id] || new Set<string>()
+  const getStreak        = (id: string) => currentStreak(datesOf(id))
+  const isCompletedToday = (id: string) => datesOf(id).has(today)
 
-  function isCompletedToday(goalId: string): boolean {
-    const today = new Date().toISOString().split('T')[0]
-    return (logs[goalId] || []).some(l => l.logged_date === today)
-  }
-
-  async function handleMarkToday(e: React.MouseEvent, habit: GoalWithStats) {
+  function handleMarkToday(e: React.MouseEvent, habit: GoalWithStats) {
     e.stopPropagation()
     if (isCompletedToday(habit.id)) return
     setLogTarget(habit)
@@ -97,46 +90,53 @@ export default function HabitsPage() {
 
   function handleLogged() {
     if (!logTarget) return
-    const today = new Date().toISOString().split('T')[0]
-    setLogs(prev => ({
-      ...prev,
-      [logTarget.id]: [{ logged_date: today }, ...(prev[logTarget.id] || [])]
-    }))
+    setLogs(prev => ({ ...prev, [logTarget.id]: new Set([...(prev[logTarget.id] || []), today]) }))
     setLogTarget(null)
   }
 
-  const completedToday = habits.filter(h => isCompletedToday(h.id)).length
+  const pending  = habits.filter(h => !isCompletedToday(h.id))
+  const done     = habits.filter(h => isCompletedToday(h.id))
+  const pct      = habits.length > 0 ? Math.round((done.length / habits.length) * 100) : 0
+  const best     = habits.reduce<{ title: string; streak: number } | null>((acc, h) => {
+    const s = getStreak(h.id)
+    return !acc || s > acc.streak ? { title: h.title, streak: s } : acc
+  }, null)
+
+  const card = (h: GoalWithStats) => (
+    <HabitCard
+      key={h.id}
+      habit={h}
+      streak={getStreak(h.id)}
+      completedToday={isCompletedToday(h.id)}
+      week={lastDays(datesOf(h.id), 7)}
+      onClick={() => router.push(`/habits/${h.id}`)}
+      onMarkToday={e => handleMarkToday(e, h)}
+      onEdit={() => setEditTarget(h)}
+      onDelete={() => setDeleteTarget(h)}
+    />
+  )
 
   return (
-    <div style={{ padding: '24px 20px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
-        <div>
-          <h1 style={{ fontSize: '18px', fontWeight: 600, margin: '0 0 4px' }}>Hábitos diarios</h1>
-          <p style={{ fontSize: '13px', color: 'var(--muted)', margin: 0 }}>
-            Construye consistencia día a día
-          </p>
-        </div>
-        <Button variant="primary" size="md" icon={<Plus size={14} />} onClick={() => setShowCreate(true)}>
-          Nuevo hábito
-        </Button>
-      </div>
+    <PageShell isMobile={isMobile}>
+      <PageHeader
+        icon={<Repeat2 size={18} />} color={ACCENT} title="Hábitos diarios"
+        subtitle="Construye consistencia día a día" isMobile={isMobile}
+        action={
+          <Button variant="primary" size="md" icon={<Plus size={14} />} onClick={() => setShowCreate(true)}
+            style={{ background: ACCENT, color: '#0A0E1A' }}>
+            Nuevo hábito
+          </Button>
+        }
+      />
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '10px', marginBottom: '24px' }}>
-        {[
-          { label: 'Total hábitos',    value: habits.length,     color: 'var(--cyan)' },
-          { label: 'Completados hoy',  value: completedToday,    color: 'var(--green)' },
-          { label: 'Pendientes hoy',   value: habits.length - completedToday, color: 'var(--amber)' },
-          { label: 'Mejor racha',      value: `${Math.max(0, ...habits.map(h => getStreak(h.id)))}d`, color: 'var(--purple)' },
-        ].map(s => (
-          <div key={s.label} style={{
-            background: 'var(--surface)', border: '1px solid var(--border)',
-            borderRadius: 'var(--radius-md)', padding: '14px 16px',
-          }}>
-            <div style={{ fontSize: '11px', color: 'var(--muted)', marginBottom: '8px' }}>{s.label}</div>
-            <div style={{ fontSize: '20px', fontWeight: 600, fontFamily: 'var(--font-mono)', color: s.color }}>{s.value}</div>
-          </div>
-        ))}
-      </div>
+      {habits.length > 0 && (
+        <StatRow isMobile={isMobile} stats={[
+          { label: 'Hechos hoy',  value: `${done.length}/${habits.length}`, color: ACCENT, bar: pct },
+          { label: 'Pendientes',  value: pending.length,                     color: 'var(--amber)' },
+          { label: 'Total hábitos', value: habits.length,                    color: 'var(--cyan)' },
+          { label: 'Mejor racha', value: `${best?.streak || 0}d`, hint: best && best.streak > 0 ? best.title : undefined, color: 'var(--purple)' },
+        ]} />
+      )}
 
       {loading ? (
         <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--dim)', fontFamily: 'var(--font-mono)', fontSize: '13px' }}>
@@ -151,67 +151,40 @@ export default function HabitsPage() {
             <div style={{ fontSize: '15px', fontWeight: 500, marginBottom: '6px' }}>Sin hábitos aún</div>
             <div style={{ fontSize: '13px', color: 'var(--muted)' }}>Crea tu primer hábito diario</div>
           </div>
-          <Button variant="primary" size="md" icon={<Plus size={14} />} onClick={() => setShowCreate(true)}>
+          <Button variant="primary" size="md" icon={<Plus size={14} />} onClick={() => setShowCreate(true)}
+            style={{ background: ACCENT, color: '#0A0E1A' }}>
             Crear hábito
           </Button>
         </div>
       ) : (
-        <>
-          {completedToday < habits.length && (
-            <div style={{ marginBottom: '16px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
-                <Repeat2 size={13} color="var(--muted)" />
-                <span style={{ fontSize: '11px', color: 'var(--muted)', letterSpacing: '1px', fontWeight: 500 }}>PENDIENTES HOY</span>
-                <Badge color="amber">{habits.length - completedToday}</Badge>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '10px' }}>
-                {habits.filter(h => !isCompletedToday(h.id)).map(h => (
-                  <HabitCard
-                    key={h.id}
-                    habit={h}
-                    streak={getStreak(h.id)}
-                    completedToday={false}
-                    onClick={() => router.push(`/habits/${h.id}`)}
-                    onMarkToday={e => handleMarkToday(e, h)}
-                    onEdit={() => setEditTarget(h)}
-                    onDelete={() => setDeleteTarget(h)}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
+        <div style={{
+          display: 'grid', alignItems: 'start', gap: isMobile ? '12px' : '16px',
+          gridTemplateColumns: isDesktop ? 'repeat(2, minmax(0, 1fr))' : 'minmax(0, 1fr)',
+        }}>
+          <Panel icon={<Circle size={14} />} title="Pendientes hoy" color="var(--amber)" count={pending.length} isMobile={isMobile}>
+            {pending.length === 0 ? (
+              <p style={{ textAlign: 'center', color: 'var(--muted)', fontSize: '13px', padding: '2rem 1rem', margin: 0 }}>
+                ¡Completaste todos tus hábitos de hoy! 🎉
+              </p>
+            ) : (
+              <div style={{ display: 'grid', gap: '10px' }}>{pending.map(card)}</div>
+            )}
+          </Panel>
 
-          {completedToday > 0 && (
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
-                <span style={{ fontSize: '11px', color: 'var(--muted)', letterSpacing: '1px', fontWeight: 500 }}>COMPLETADOS HOY</span>
-                <Badge color="green">{completedToday}</Badge>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '10px' }}>
-                {habits.filter(h => isCompletedToday(h.id)).map(h => (
-                  <HabitCard
-                    key={h.id}
-                    habit={h}
-                    streak={getStreak(h.id)}
-                    completedToday={true}
-                    onClick={() => router.push(`/habits/${h.id}`)}
-                    onMarkToday={e => handleMarkToday(e, h)}
-                    onEdit={() => setEditTarget(h)}
-                    onDelete={() => setDeleteTarget(h)}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-        </>
+          <Panel icon={<CheckCircle2 size={14} />} title="Hechos hoy" color={ACCENT} count={done.length} isMobile={isMobile}>
+            {done.length === 0 ? (
+              <p style={{ textAlign: 'center', color: 'var(--muted)', fontSize: '13px', padding: '2rem 1rem', margin: 0 }}>
+                Los hábitos que marques hoy aparecerán aquí.
+              </p>
+            ) : (
+              <div style={{ display: 'grid', gap: '10px' }}>{done.map(card)}</div>
+            )}
+          </Panel>
+        </div>
       )}
 
       {logTarget && (
-        <div style={{
-          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)',
-          backdropFilter: 'blur(4px)', zIndex: 50,
-          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem',
-        }}>
+        <ModalBackdrop>
           <HabitLogModal
             goalId={logTarget.id}
             userId={userId}
@@ -219,25 +192,17 @@ export default function HabitsPage() {
             onLogged={handleLogged}
             onClose={() => setLogTarget(null)}
           />
-        </div>
+        </ModalBackdrop>
       )}
 
       {showCreate && (
-        <div style={{
-          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)',
-          backdropFilter: 'blur(4px)', zIndex: 50,
-          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem',
-        }}>
+        <ModalBackdrop>
           <CreateGoalModal onClose={() => { setShowCreate(false); loadHabits() }} />
-        </div>
+        </ModalBackdrop>
       )}
 
       {editTarget && (
-        <div style={{
-          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)',
-          backdropFilter: 'blur(4px)', zIndex: 50,
-          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem',
-        }}>
+        <ModalBackdrop>
           <EditGoalModal
             goal={editTarget}
             onSave={updated => {
@@ -246,15 +211,11 @@ export default function HabitsPage() {
             }}
             onClose={() => setEditTarget(null)}
           />
-        </div>
+        </ModalBackdrop>
       )}
 
       {deleteTarget && (
-        <div style={{
-          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)',
-          backdropFilter: 'blur(4px)', zIndex: 50,
-          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem',
-        }}>
+        <ModalBackdrop>
           <div style={{
             background: 'var(--surface)', border: '1px solid #FF386044',
             borderRadius: 'var(--radius-xl)', padding: '24px',
@@ -276,8 +237,8 @@ export default function HabitsPage() {
               </Button>
             </div>
           </div>
-        </div>
+        </ModalBackdrop>
       )}
-    </div>
+    </PageShell>
   )
 }

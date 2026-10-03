@@ -64,7 +64,7 @@ export default function WorldPage() {
   setLoading(false)
 }
   return (
-    <div style={{ padding: isMobile ? '12px' : '24px 20px' }}>
+    <div style={{ padding: isMobile ? '12px' : '24px 20px', maxWidth: '1100px', width: '100%', margin: '0 auto', boxSizing: 'border-box' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: isMobile ? '16px' : '24px' }}>
         <div style={{
           width: '36px', height: '36px', borderRadius: '10px',

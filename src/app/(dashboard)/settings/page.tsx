@@ -27,7 +27,7 @@ export default function SettingsPage() {
   async function loadUser() {
     const supabase = createClient()
     const { data: { user: u } } = await supabase.auth.getUser()
-    if (!u) return
+    if (!u) { setLoading(false); return }
     setUser({
       id:    u.id,
       name:  u.user_metadata?.full_name || u.email?.split('@')[0] || '',
@@ -39,7 +39,7 @@ export default function SettingsPage() {
   const gridCols = isMobile ? '1fr' : '1fr 1fr'
 
   return (
-    <div style={{ padding: isMobile ? '12px' : '24px 20px', maxWidth: '900px' }}>
+    <div style={{ padding: isMobile ? '12px' : '24px 20px', maxWidth: '1000px', width: '100%', margin: '0 auto', boxSizing: 'border-box' }}>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: isMobile ? '16px' : '24px' }}>
         <div style={{
@@ -78,7 +78,7 @@ export default function SettingsPage() {
           <TimezoneSection userId={user.id} />
 
           {/* FILA 3 — Notificaciones */}
-<NotificationsSection userId={user.id} />
+          <NotificationsSection userId={user.id} />
 
           {/* FILA 4 — Zona de peligro */}
           <DangerSection />

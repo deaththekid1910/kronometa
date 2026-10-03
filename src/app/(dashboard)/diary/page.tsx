@@ -181,7 +181,7 @@ export default function DiaryPage() {
 
   // LISTA
   return (
-    <div style={{ padding: isMobile ? '12px' : '24px 20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+    <div style={{ padding: isMobile ? '12px' : '24px 20px', display: 'flex', flexDirection: 'column', gap: '16px', maxWidth: '1100px', width: '100%', margin: '0 auto', boxSizing: 'border-box' }}>
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>

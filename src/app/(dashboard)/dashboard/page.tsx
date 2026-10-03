@@ -22,7 +22,7 @@ import TodayTasksSummary from '@/components/dashboard/TodayTasksSummary'
 import RecentAchievements, { RecentAchievementItem } from '@/components/dashboard/RecentAchievements'
 import RecentSessions, { RecentSessionItem } from '@/components/dashboard/RecentSessions'
 import TopBar from '@/components/layout/TopBar'
-import Badge from '@/components/ui/Badge'
+import { Panel, PanelAction, ModalBackdrop } from '@/components/ui/Layout'
 import { Target, Repeat2, Clock, Flame, CheckCircle2, CalendarClock, Star, Plus } from 'lucide-react'
 
 interface RawSession {
@@ -182,7 +182,10 @@ export default function DashboardPage() {
 
       {bp === 'desktop' && <TopBar onNewGoal={() => setShowModal(true)} />}
 
-      <div style={{ padding, display: 'flex', flexDirection: 'column', gap: bp === 'mobile' ? '14px' : '20px' }}>
+      <div style={{
+        padding, display: 'flex', flexDirection: 'column', gap: bp === 'mobile' ? '14px' : '20px',
+        maxWidth: '1280px', width: '100%', margin: '0 auto', boxSizing: 'border-box',
+      }}>
 
         {userName && <DashboardHeader userName={userName} />}
 
@@ -306,29 +309,28 @@ export default function DashboardPage() {
         ) : (
           <>
             {metas.length > 0 && (
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
-                  <Target size={13} color="var(--muted)" />
-                  <span style={{ fontSize: '11px', color: 'var(--muted)', letterSpacing: '1px', fontWeight: 500 }}>METAS Y PROYECTOS</span>
-                  <Badge color="gray">{metas.length}</Badge>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: cardsColumns, gap: '10px' }}>
+              <Panel
+                icon={<Target size={14} />} title="Metas y proyectos" color="var(--cyan)" count={metas.length}
+                isMobile={bp === 'mobile'}
+                action={<PanelAction color="#00F5FF" onClick={() => router.push('/goals')}>Ver todas</PanelAction>}
+              >
+                <div style={{ display: 'grid', gridTemplateColumns: cardsColumns, gap: '12px' }}>
                   {metas.map(g => <GoalCard key={g.id} goal={g} onClick={() => router.push(`/goals/${g.id}`)} />)}
                 </div>
-              </div>
+              </Panel>
             )}
 
             {habitos.length > 0 && (
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
-                  <Repeat2 size={13} color="var(--muted)" />
-                  <span style={{ fontSize: '11px', color: 'var(--muted)', letterSpacing: '1px', fontWeight: 500 }}>HÁBITOS DIARIOS</span>
-                  <Badge color="gray">{habitos.length}</Badge>
+              <Panel
+                icon={<Repeat2 size={14} />} title="Hábitos diarios" color="var(--green)" count={habitos.length}
+                isMobile={bp === 'mobile'}
+                action={<PanelAction color="#00FF88" onClick={() => router.push('/habits')}>Ver todos</PanelAction>}
+              >
+                <div style={{ display: 'grid', gridTemplateColumns: cardsColumns, gap: '12px' }}>
+                  {/* Antes llevaba a /goals/[id]: los hábitos tienen su propia página */}
+                  {habitos.map(g => <GoalCard key={g.id} goal={g} onClick={() => router.push(`/habits/${g.id}`)} />)}
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: cardsColumns, gap: '10px' }}>
-                  {habitos.map(g => <GoalCard key={g.id} goal={g} onClick={() => router.push(`/goals/${g.id}`)} />)}
-                </div>
-              </div>
+              </Panel>
             )}
 
             {goals.length === 0 && (
@@ -354,13 +356,9 @@ export default function DashboardPage() {
       </div>
 
       {showModal && (
-        <div style={{
-          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)',
-          backdropFilter: 'blur(4px)', zIndex: 50,
-          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem',
-        }}>
+        <ModalBackdrop>
           <CreateGoalModal onClose={() => setShowModal(false)} />
-        </div>
+        </ModalBackdrop>
       )}
     </>
   )

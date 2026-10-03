@@ -15,7 +15,7 @@ export default function AchievementCard({ achievement, unlocked, unlockedAt }: P
       border: `1px solid ${unlocked ? achievement.color + '44' : 'var(--border)'}`,
       borderRadius: 'var(--radius-md)', padding: '16px',
       transition: 'all var(--transition)',
-      opacity: unlocked ? 1 : 0.45,
+      opacity: unlocked ? 1 : 0.75,
       position: 'relative', overflow: 'hidden',
     }}
       onMouseEnter={e => {
@@ -53,20 +53,20 @@ export default function AchievementCard({ achievement, unlocked, unlockedAt }: P
         </div>
 
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '3px' }}>
-            <span style={{ fontSize: '13px', fontWeight: 500, color: unlocked ? 'var(--text)' : 'var(--dim)' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px', marginBottom: '4px' }}>
+            <span style={{ fontSize: '13px', fontWeight: 600, color: unlocked ? 'var(--text)' : 'var(--muted)', lineHeight: 1.35, overflowWrap: 'anywhere' }}>
               {achievement.title}
             </span>
             {achievement.xp > 0 && (
               <span style={{
                 fontSize: '10px', fontFamily: 'var(--font-mono)',
-                color: unlocked ? achievement.color : 'var(--dim)',
-                background: unlocked ? achievement.color + '15' : 'transparent',
-                padding: '2px 6px', borderRadius: '4px',
+                color: unlocked ? achievement.color : 'var(--muted)',
+                background: unlocked ? achievement.color + '15' : '#ffffff08',
+                padding: '2px 6px', borderRadius: '4px', flexShrink: 0, whiteSpace: 'nowrap',
               }}>+{achievement.xp} XP</span>
             )}
           </div>
-          <div style={{ fontSize: '11px', color: 'var(--muted)', lineHeight: 1.4 }}>
+          <div style={{ fontSize: '12px', color: 'var(--muted)', lineHeight: 1.45 }}>
             {achievement.description}
           </div>
           {unlocked && unlockedAt && (
@@ -75,7 +75,7 @@ export default function AchievementCard({ achievement, unlocked, unlockedAt }: P
             </div>
           )}
           {!unlocked && (
-            <div style={{ fontSize: '10px', color: 'var(--dim)', marginTop: '4px' }}>🔒 Bloqueado</div>
+            <div style={{ fontSize: '10px', color: 'var(--muted)', marginTop: '6px' }}>🔒 Bloqueado</div>
           )}
         </div>
       </div>

@@ -24,6 +24,7 @@ import {
   Repeat2, ListChecks, CalendarClock, Flag,
 } from 'lucide-react'
 import Button from '@/components/ui/Button'
+import { PageHeader, PageShell, TabBar } from '@/components/ui/Layout'
 
 type Tab = 'day' | 'goals' | 'habits' | 'daily' | 'schedule'
 
@@ -45,7 +46,6 @@ export default function ReportsPage() {
 
   const bp       = useBreakpoint()
   const isMobile = bp === 'mobile'
-  const padding  = isMobile ? '12px' : '24px 20px'
 
   useEffect(() => {
     try {
@@ -74,64 +74,25 @@ export default function ReportsPage() {
   }
 
   return (
-    <div style={{ padding, maxWidth: '1200px', width: '100%', margin: '0 auto', boxSizing: 'border-box' }}>
+    <PageShell isMobile={isMobile} maxWidth={1200}>
       <style>{`@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
 
-      {/* HEADER */}
-      <div style={{
-        display: 'flex', justifyContent: 'space-between',
-        alignItems: 'center', gap: '12px', marginBottom: isMobile ? '12px' : '18px',
-      }}>
-        <div>
-          <h1 style={{ fontSize: isMobile ? '16px' : '18px', fontWeight: 600, margin: '0 0 2px' }}>Reportes</h1>
-          <p style={{ fontSize: '12px', color: 'var(--muted)', margin: 0 }}>
-            Cada área con su propio análisis
-          </p>
-        </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          icon={<RefreshCw size={13} style={{ animation: refreshing ? 'spin 1s linear infinite' : 'none' }} />}
-          onClick={loadReports}
-        >
-          {isMobile ? '' : 'Actualizar'}
-        </Button>
-      </div>
+      <PageHeader
+        icon={<BarChart2 size={18} />} color="#B026FF" title="Reportes"
+        subtitle="Cada área con su propio análisis" isMobile={isMobile}
+        action={
+          <Button
+            variant="ghost" size="sm"
+            icon={<RefreshCw size={13} style={{ animation: refreshing ? 'spin 1s linear infinite' : 'none' }} />}
+            onClick={loadReports}
+          >
+            {isMobile ? '' : 'Actualizar'}
+          </Button>
+        }
+      />
 
-      {/* PESTAÑAS POR ÁREA */}
-      <nav role="tablist" style={{
-        display: 'flex', gap: '6px', overflowX: 'auto',
-        padding: '4px', marginBottom: isMobile ? '14px' : '20px',
-        background: 'var(--surface)', border: '1px solid var(--border)',
-        borderRadius: 'var(--radius-md)', scrollbarWidth: 'none',
-      }}>
-        {TABS.map(t => {
-          const active = t.id === tab
-          return (
-            <button
-              key={t.id}
-              role="tab"
-              aria-selected={active}
-              onClick={() => selectTab(t.id)}
-              style={{
-                flex: isMobile ? '0 0 auto' : 1,
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                padding: isMobile ? '8px 12px' : '9px 14px',
-                borderRadius: 'var(--radius-sm)', cursor: 'pointer', whiteSpace: 'nowrap',
-                fontSize: '13px', fontWeight: active ? 600 : 500,
-                color: active ? t.color : 'var(--muted)',
-                background: active ? '#ffffff0a' : 'transparent',
-                border: `1px solid ${active ? 'var(--border)' : 'transparent'}`,
-                boxShadow: active ? `inset 0 -2px 0 ${t.color}` : 'none',
-                transition: 'all var(--transition)',
-              }}
-            >
-              {t.icon}
-              {t.label}
-            </button>
-          )
-        })}
-      </nav>
+      {/* PESTAÑAS POR ÁREA (las mismas que en el resto de la app) */}
+      <TabBar<Tab> tabs={TABS} active={tab} onChange={selectTab} isMobile={isMobile} />
 
       {tab === 'day' && <DateHistorySection key={dayKey} isMobile={isMobile} />}
 
@@ -145,7 +106,7 @@ export default function ReportsPage() {
           : tab === 'daily'    ? <DailyReport    data={data} isMobile={isMobile} />
           :                      <ScheduleReport data={data} isMobile={isMobile} />
       )}
-    </div>
+    </PageShell>
   )
 }
 
@@ -176,10 +137,10 @@ function GoalsReport({ data, isMobile }: AreaProps) {
         <ReportPanel title="Tiempo por meta · velas" subtitle="Cada meta frente al promedio" icon={<BarChart2 size={13} />} color="var(--amber)" isMobile={isMobile}>
           <CandlestickChart data={time} emptyText="Aún no hay tiempo registrado en metas." />
         </ReportPanel>
-        <ReportPanel title="Actividad semanal" subtitle="Tiempo en metas los últimos 7 días" icon={<Activity size={13} />} color="var(--purple)" isMobile={isMobile}>
+        <ReportPanel title="Actividad semanal" subtitle="Tiempo en metas los últimos 7 días" icon={<Activity size={13} />} color="var(--purple)" isMobile={isMobile} wide>
           <WeeklyActivityChart data={week} emptyText="Sin tiempo en metas esta semana." />
         </ReportPanel>
-        <ReportPanel title="Avance de submetas" subtitle="Progreso de cada meta" icon={<Flag size={13} />} color="var(--green)" isMobile={isMobile}>
+        <ReportPanel title="Avance de submetas" subtitle="Progreso de cada meta" icon={<Flag size={13} />} color="var(--green)" isMobile={isMobile} wide>
           <GoalProgressList data={progress} />
         </ReportPanel>
       </PanelGrid>
@@ -213,10 +174,10 @@ function HabitsReport({ data, isMobile }: AreaProps) {
         <ReportPanel title="Tiempo por hábito · velas" subtitle="Cada hábito frente al promedio" icon={<BarChart2 size={13} />} color="var(--amber)" isMobile={isMobile}>
           <CandlestickChart data={time} emptyText="Aún no hay tiempo registrado en hábitos." />
         </ReportPanel>
-        <ReportPanel title="Actividad semanal" subtitle="Tiempo en hábitos los últimos 7 días" icon={<Activity size={13} />} color="var(--purple)" isMobile={isMobile}>
+        <ReportPanel title="Actividad semanal" subtitle="Tiempo en hábitos los últimos 7 días" icon={<Activity size={13} />} color="var(--purple)" isMobile={isMobile} wide>
           <WeeklyActivityChart data={week} emptyText="Sin tiempo en hábitos esta semana." />
         </ReportPanel>
-        <ReportPanel title="Consistencia · radar" subtitle="Días cumplidos en los últimos 30" icon={<Zap size={13} />} color="var(--green)" isMobile={isMobile}>
+        <ReportPanel title="Consistencia · radar" subtitle="Días cumplidos en los últimos 30" icon={<Zap size={13} />} color="var(--green)" isMobile={isMobile} wide>
           <HabitConsistencyChart data={consistency} />
         </ReportPanel>
       </PanelGrid>
@@ -237,7 +198,7 @@ function DailyReport({ data, isMobile }: AreaProps) {
         { label: 'Completadas', value: stats.completed, hint: 'últimos 14 días', color: 'var(--green)' },
         { label: 'Mejor racha', value: `${stats.bestStreak}d`, hint: 'días con todo hecho', color: 'var(--amber)' },
       ]} />
-      <PanelGrid isMobile={isMobile}>
+      <PanelGrid isMobile={isMobile} split>
         <ReportPanel title="Cumplimiento · torta" subtitle="Completadas frente a sin completar (14 días)" icon={<PieChart size={13} />} color="var(--purple)" isMobile={isMobile}>
           {empty ? <EmptyNote>Aún no tienes tareas diarias en los últimos 14 días.</EmptyNote> : (
             <SlicePie
@@ -272,7 +233,7 @@ function ScheduleReport({ data, isMobile }: AreaProps) {
         { label: 'Promedio por día', value: formatMinutes(stats.totalMinutes / 7), color: 'var(--purple)' },
         { label: 'Día más cargado', value: busiest && busiest.minutes > 0 ? busiest.label : '—', hint: busiest && busiest.minutes > 0 ? formatMinutes(busiest.minutes) : undefined, color: 'var(--amber)' },
       ]} />
-      <PanelGrid isMobile={isMobile}>
+      <PanelGrid isMobile={isMobile} split>
         <ReportPanel title="Distribución semanal · torta" subtitle="Horas planificadas por bloque cada semana" icon={<PieChart size={13} />} color="var(--red)" isMobile={isMobile}>
           {empty ? <EmptyNote>Crea bloques en Horario para ver cómo repartes tu semana.</EmptyNote> : (
             <SlicePie

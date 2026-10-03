@@ -49,41 +49,40 @@ export async function getTimeByGoal(userId: string): Promise<GoalTimeData[]> {
     .sort((a, b) => b.totalSeconds - a.totalSeconds)
 }
 
+// Actividad de los últimos 7 días por FECHA LOCAL (antes se agrupaba por la
+// fecha UTC de created_at, así que de noche el tiempo caía en "mañana") e
+// incluyendo el tiempo en vivo de los cronómetros que siguen corriendo.
 export async function getWeeklyActivity(userId: string): Promise<DayActivity[]> {
   const supabase = createClient()
 
   const since = new Date()
-  since.setDate(since.getDate() - 7)
+  since.setHours(0, 0, 0, 0)
+  since.setDate(since.getDate() - 6)
 
   const { data: sessions } = await supabase
     .from('timer_sessions')
-    .select('elapsed_seconds, started_at, ended_at, created_at')
+    .select('elapsed_seconds, started_at, is_active, created_at')
     .eq('user_id', userId)
     .gte('created_at', since.toISOString())
 
-  const days: DayActivity[] = []
-
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date()
-    d.setDate(d.getDate() - i)
-    const dateStr = d.toISOString().split('T')[0]
-    const label   = d.toLocaleDateString('es-VE', { weekday: 'short' })
-
-    const daySessions = (sessions || []).filter(s =>
-      s.created_at?.startsWith(dateStr)
-    )
-
-    const totalSecs = daySessions.reduce((acc, s) => acc + (s.elapsed_seconds || 0), 0)
-
-    days.push({
-      date: dateStr,
-      label: label.charAt(0).toUpperCase() + label.slice(1),
-      seconds: totalSecs,
-      sessions: daySessions.length,
-    })
+  const now = Date.now()
+  const agg: Record<string, { secs: number; count: number }> = {}
+  for (const s of sessions || []) {
+    if (!s.created_at) continue
+    const date = localDateOf(new Date(s.created_at))
+    let secs = s.elapsed_seconds || 0
+    if (s.is_active && s.started_at) secs += Math.floor((now - new Date(s.started_at).getTime()) / 1000)
+    const a = agg[date] || (agg[date] = { secs: 0, count: 0 })
+    a.secs  += Math.max(0, secs)
+    a.count += 1
   }
 
-  return days
+  return lastNDates(7).map(date => ({
+    date,
+    label: shortWeekday(date),
+    seconds: agg[date]?.secs || 0,
+    sessions: agg[date]?.count || 0,
+  }))
 }
 
 export interface DateHistoryItem {

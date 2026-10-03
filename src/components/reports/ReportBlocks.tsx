@@ -17,7 +17,6 @@ export function KpiGrid({ items, isMobile }: { items: Kpi[]; isMobile: boolean }
       display: 'grid',
       gridTemplateColumns: isMobile ? 'repeat(2, minmax(0, 1fr))' : `repeat(${items.length}, minmax(0, 1fr))`,
       gap: isMobile ? '8px' : '10px',
-      marginBottom: isMobile ? '12px' : '16px',
     }}>
       {items.map(k => (
         <div key={k.label} style={{
@@ -86,11 +85,12 @@ export function ReportPanel({ title, subtitle, icon, color, isMobile, wide, chil
   )
 }
 
-export function PanelGrid({ isMobile, children }: { isMobile: boolean; children: React.ReactNode }) {
+// `split`: primera columna estrecha (torta) y segunda ancha (barras)
+export function PanelGrid({ isMobile, split = false, children }: { isMobile: boolean; split?: boolean; children: React.ReactNode }) {
   return (
     <div style={{
-      display: 'grid',
-      gridTemplateColumns: isMobile ? 'minmax(0, 1fr)' : 'repeat(2, minmax(0, 1fr))',
+      display: 'grid', alignItems: 'start',
+      gridTemplateColumns: isMobile ? 'minmax(0, 1fr)' : split ? 'minmax(0, 1fr) minmax(0, 1.6fr)' : 'repeat(2, minmax(0, 1fr))',
       gap: isMobile ? '10px' : '16px',
     }}>
       {children}

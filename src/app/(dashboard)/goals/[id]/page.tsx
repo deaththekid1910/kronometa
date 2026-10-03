@@ -16,6 +16,8 @@ import DeadlineCard from '@/components/goals/DeadlineCard'
 import Badge from '@/components/ui/Badge'
 import Button from '@/components/ui/Button'
 import { getTotalSeconds, formatTime } from '@/lib/timer'
+import { useBreakpoint } from '@/hooks/useBreakpoint'
+import { Panel, PanelAction, ModalBackdrop } from '@/components/ui/Layout'
 import {
   ArrowLeft, Plus, Target, Calendar,
   Clock, CheckCircle2, Circle, Trash2, Repeat2, Pencil
@@ -40,6 +42,9 @@ export default function GoalDetailPage() {
   const [dropSgIdx,      setDropSgIdx]      = useState<number | null>(null)
   const [dragRtIdx,      setDragRtIdx]      = useState<number | null>(null)
   const [dropRtIdx,      setDropRtIdx]      = useState<number | null>(null)
+  const bp        = useBreakpoint()
+  const isMobile  = bp === 'mobile'
+  const isDesktop = bp === 'desktop'
 
   useEffect(() => { loadGoal() }, [id])
 
@@ -265,7 +270,7 @@ export default function GoalDetailPage() {
   })() as 'cyan' | 'purple' | 'green' | 'amber' | 'gray'
 
   return (
-    <div style={{ maxWidth: '780px', margin: '0 auto', padding: '24px 20px' }}>
+    <div style={{ maxWidth: '1100px', width: '100%', margin: '0 auto', padding: isMobile ? '12px' : '24px 20px', boxSizing: 'border-box' }}>
 
       {/* ── HEADER: barra de acciones arriba, título a todo el ancho debajo ── */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
@@ -351,232 +356,170 @@ export default function GoalDetailPage() {
         </div>
       )}
 
-      {/* ── COUNTDOWN ── */}
-      {goal.type === 'goal' && goal.deadline && (
-        <div style={{ marginBottom: '24px' }}>
-          <DeadlineCard
-            deadline={goal.deadline}
-            timezone={goal.timezone}
-            createdAt={goal.created_at}
-            color={accent}
-            onClick={() => setShowEditGoal(true)}
-          />
-        </div>
-      )}
-
-      {/* ── STATS ── */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
-        gap: '10px', marginBottom: '24px',
-      }}>
-        {[
-          { icon: <CheckCircle2 size={14} />, label: 'Completadas', value: `${completed}/${total}`, color: 'var(--green)' },
-          { icon: <Clock size={14} />,        label: 'Tiempo total', value: formatTime(totalSecs),  color: 'var(--amber)', mono: true },
-          { icon: <Target size={14} />,       label: 'Progreso',    value: `${progress}%`,          color: accent },
-          ...(goal.deadline ? [{
-            icon: <Calendar size={14} />,
-            label: 'Vence',
-            value: new Date(goal.deadline).toLocaleDateString('es-VE', { day: 'numeric', month: 'short' }),
-            color: 'var(--muted)',
-          }] : []),
-        ].map(s => (
-          <div key={s.label} style={{
-            background: 'var(--surface)', border: '1px solid var(--border)',
-            borderRadius: 'var(--radius-md)', padding: '14px 16px',
-          }}>
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: '5px',
-              color: 'var(--muted)', fontSize: '11px', marginBottom: '8px',
-            }}>
-              <span style={{ color: s.color }}>{s.icon}</span>
-              {s.label}
-            </div>
-            <div style={{
-              fontSize: '18px', fontWeight: 600, color: s.color,
-              fontFamily: (s as any).mono ? 'var(--font-mono)' : 'var(--font-sans)',
-            }}>
-              {s.value}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* ── AVATAR TRACK ── */}
-      {goal.type === 'goal' && (
-        <div style={{
-          background: 'var(--surface)', border: '1px solid var(--border)',
-          borderRadius: 'var(--radius-lg)', padding: '20px', marginBottom: '24px',
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-            <span style={{ fontSize: '11px', color: 'var(--muted)', letterSpacing: '1px' }}>
-              PROGRESO GENERAL
-            </span>
-            <span style={{ fontSize: '12px', fontFamily: 'var(--font-mono)', color: accent }}>
-              {progress}%
-            </span>
-          </div>
-          <div style={{
-            height: '6px', background: 'var(--border)',
-            borderRadius: '6px', overflow: 'hidden', marginBottom: '4px',
-          }}>
-            <div style={{
-              height: '100%', width: `${progress}%`,
-              background: `linear-gradient(90deg, ${accent}88, ${accent})`,
-              borderRadius: '6px', transition: 'width 0.8s ease',
-            }} />
-          </div>
-          <AvatarTrack subGoals={subGoals} color={accent} />
-        </div>
-      )}
-
-      {/* ── SUBMETAS ── */}
-      <div style={{ marginBottom: '24px' }}>
-        <div style={{
-          display: 'flex', alignItems: 'center',
-          justifyContent: 'space-between', marginBottom: '12px',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '11px', color: 'var(--muted)', letterSpacing: '1px', fontWeight: 500 }}>
-              SUBMETAS
-            </span>
-            <Badge color="gray">{total} en total</Badge>
-          </div>
-          {goal.type === 'goal' && (
-            <Button
-              variant="secondary" size="sm"
-              icon={<Plus size={13} />}
-              onClick={() => setShowModal(true)}
-            >
-              Agregar
-            </Button>
-          )}
-        </div>
-
-        {subGoals.length === 0 ? (
-          <div style={{
-            textAlign: 'center', padding: '3rem',
-            background: 'var(--surface)',
-            border: `1px dashed ${accent}33`,
-            borderRadius: 'var(--radius-lg)',
-          }}>
-            <Circle size={32} color={accent} style={{ opacity: 0.4, marginBottom: '12px' }} />
-            <p style={{ color: 'var(--muted)', fontSize: '14px', marginBottom: '12px' }}>
-              Sin submetas aún
-            </p>
-            <Button
-              variant="secondary" size="sm"
-              icon={<Plus size={13} />}
-              onClick={() => setShowModal(true)}
-              style={{ background: `${accent}12`, color: accent, borderColor: `${accent}30` }}
-            >
-              Agregar primera submeta
-            </Button>
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {subGoals.map((sg, i) => (
-              <SubGoalItem
-                key={sg.id}
-                subGoal={sg}
-                index={i}
+      {(() => {
+        /* ── RESUMEN: fecha límite, cifras y mapa de progreso ── */
+        const summary = (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? '12px' : '16px', minWidth: 0 }}>
+            {goal.type === 'goal' && goal.deadline && (
+              <DeadlineCard
+                deadline={goal.deadline}
+                timezone={goal.timezone}
+                createdAt={goal.created_at}
                 color={accent}
-                onComplete={handleComplete}
-                onUncomplete={handleUncomplete}
-                onUpdate={handleUpdate}
-                onDelete={handleDeleteSubGoal}
-                isDragging={dragSgIdx === i}
-                isDragOver={dropSgIdx === i && dragSgIdx !== i}
-                onDragStart={() => setDragSgIdx(i)}
-                onDragOver={() => setDropSgIdx(i)}
-                onDrop={handleDropSubGoals}
-                onDragEnd={() => { setDragSgIdx(null); setDropSgIdx(null) }}
+                onClick={() => setShowEditGoal(true)}
               />
-            ))}
-          </div>
-        )}
-      </div>
+            )}
 
-      {/* ── TAREAS RECURRENTES ── */}
-      {goal.type === 'goal' && (
-        <div style={{ marginBottom: '24px' }}>
-          <div style={{
-            display: 'flex', alignItems: 'center',
-            justifyContent: 'space-between', marginBottom: '12px',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Repeat2 size={14} color="var(--muted)" />
-              <span style={{ fontSize: '11px', color: 'var(--muted)', letterSpacing: '1px', fontWeight: 500 }}>
-                TAREAS RECURRENTES
-              </span>
-              <Badge color="gray">{recurringTasks.length}</Badge>
-            </div>
-            <Button
-              variant="secondary" size="sm"
-              icon={<Plus size={13} />}
-              onClick={() => setShowRecurModal(true)}
-              style={{ background: '#B026FF15', color: 'var(--purple)', borderColor: '#B026FF33' }}
-            >
-              Agregar
-            </Button>
-          </div>
-
-          {recurringTasks.length === 0 ? (
-            <div style={{
-              textAlign: 'center', padding: '2rem',
-              background: 'var(--surface)',
-              border: '1px dashed #B026FF33',
-              borderRadius: 'var(--radius-lg)',
-            }}>
-              <Repeat2 size={28} color="#B026FF" style={{ opacity: 0.4, marginBottom: '10px' }} />
-              <p style={{ color: 'var(--muted)', fontSize: '13px', marginBottom: '6px' }}>
-                Sin tareas recurrentes
-              </p>
-              <p style={{ color: 'var(--dim)', fontSize: '12px', margin: '0 0 12px', lineHeight: 1.5 }}>
-                Acciones que debes repetir cada día hasta una fecha límite
-              </p>
-              <Button
-                variant="secondary" size="sm"
-                icon={<Plus size={13} />}
-                onClick={() => setShowRecurModal(true)}
-                style={{ background: '#B026FF15', color: 'var(--purple)', borderColor: '#B026FF33' }}
-              >
-                Agregar tarea recurrente
-              </Button>
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {recurringTasks.map((task, i) => (
-                <RecurringTaskItem
-                  key={task.id}
-                  task={task}
-                  userId={userId}
-                  onLog={handleLogRecurring}
-                  onDelete={handleDeleteRecurring}
-                  onUpdate={(updated) => setRecurringTasks(prev =>
-                    prev.map(t => t.id === updated.id ? { ...t, ...updated } : t)
-                  )}
-                  isDragging={dragRtIdx === i}
-                  isDragOver={dropRtIdx === i && dragRtIdx !== i}
-                  onDragStart={() => setDragRtIdx(i)}
-                  onDragOver={() => setDropRtIdx(i)}
-                  onDrop={handleDropRecurring}
-                  onDragEnd={() => { setDragRtIdx(null); setDropRtIdx(null) }}
-                />
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '10px' }}>
+              {[
+                { icon: <CheckCircle2 size={14} />, label: 'Completadas', value: `${completed}/${total}`, color: 'var(--green)', mono: false },
+                { icon: <Clock size={14} />,        label: 'Tiempo total', value: formatTime(totalSecs),  color: 'var(--amber)', mono: true },
+                { icon: <Target size={14} />,       label: 'Progreso',    value: `${progress}%`,          color: accent, mono: false },
+                {
+                  icon: <Calendar size={14} />,
+                  label: 'Vence',
+                  value: goal.deadline
+                    ? new Date(goal.deadline).toLocaleDateString('es-VE', { day: 'numeric', month: 'short' })
+                    : 'Sin fecha',
+                  color: 'var(--muted)', mono: false,
+                },
+              ].map(s => (
+                <div key={s.label} style={{
+                  background: 'var(--surface)', border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius-md)', padding: '14px 16px', minWidth: 0,
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--muted)', fontSize: '11px', marginBottom: '8px' }}>
+                    <span style={{ color: s.color, display: 'flex' }}>{s.icon}</span>
+                    {s.label}
+                  </div>
+                  <div style={{ fontSize: '18px', fontWeight: 600, color: s.color, fontFamily: s.mono ? 'var(--font-mono)' : 'var(--font-sans)' }}>
+                    {s.value}
+                  </div>
+                </div>
               ))}
             </div>
-          )}
-        </div>
-      )}
+
+            {goal.type === 'goal' && (
+              <Panel icon={<Target size={14} />} title="Progreso general" color={accent} isMobile={isMobile}
+                action={<span style={{ fontSize: '13px', fontFamily: 'var(--font-mono)', color: accent, fontWeight: 600 }}>{progress}%</span>}>
+                <div style={{ height: '8px', background: 'var(--border)', borderRadius: '6px', overflow: 'hidden' }}>
+                  <div style={{
+                    height: '100%', width: `${progress}%`,
+                    background: `linear-gradient(90deg, ${accent}88, ${accent})`,
+                    borderRadius: '6px', transition: 'width 0.8s ease',
+                  }} />
+                </div>
+                <AvatarTrack subGoals={subGoals} color={accent} />
+              </Panel>
+            )}
+          </div>
+        )
+
+        /* ── LISTAS: submetas y tareas recurrentes, cada una en su panel ── */
+        const lists = (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? '12px' : '16px', minWidth: 0 }}>
+            <Panel
+              icon={<CheckCircle2 size={14} />} title="Submetas" color={accent} count={total} isMobile={isMobile}
+              subtitle={total > 0 ? 'Arrastra para cambiar el orden' : undefined}
+              action={goal.type === 'goal' && (
+                <PanelAction color={accent} onClick={() => setShowModal(true)}><Plus size={12} /> Agregar</PanelAction>
+              )}
+            >
+              {subGoals.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '2rem 1rem' }}>
+                  <Circle size={30} color={accent} style={{ opacity: 0.4, marginBottom: '10px' }} />
+                  <p style={{ color: 'var(--muted)', fontSize: '13px', margin: '0 0 14px' }}>Sin submetas aún</p>
+                  <Button
+                    variant="secondary" size="sm" icon={<Plus size={13} />}
+                    onClick={() => setShowModal(true)}
+                    style={{ background: `${accent}12`, color: accent, borderColor: `${accent}30` }}
+                  >
+                    Agregar primera submeta
+                  </Button>
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gap: '10px' }}>
+                  {subGoals.map((sg, i) => (
+                    <SubGoalItem
+                      key={sg.id}
+                      subGoal={sg}
+                      index={i}
+                      color={accent}
+                      onComplete={handleComplete}
+                      onUncomplete={handleUncomplete}
+                      onUpdate={handleUpdate}
+                      onDelete={handleDeleteSubGoal}
+                      isDragging={dragSgIdx === i}
+                      isDragOver={dropSgIdx === i && dragSgIdx !== i}
+                      onDragStart={() => setDragSgIdx(i)}
+                      onDragOver={() => setDropSgIdx(i)}
+                      onDrop={handleDropSubGoals}
+                      onDragEnd={() => { setDragSgIdx(null); setDropSgIdx(null) }}
+                    />
+                  ))}
+                </div>
+              )}
+            </Panel>
+
+            {goal.type === 'goal' && (
+              <Panel
+                icon={<Repeat2 size={14} />} title="Tareas recurrentes" color="var(--purple)" count={recurringTasks.length} isMobile={isMobile}
+                subtitle="Acciones que repites cada día hasta una fecha límite"
+                action={<PanelAction color="#B026FF" onClick={() => setShowRecurModal(true)}><Plus size={12} /> Agregar</PanelAction>}
+              >
+                {recurringTasks.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '2rem 1rem' }}>
+                    <Repeat2 size={28} color="#B026FF" style={{ opacity: 0.4, marginBottom: '10px' }} />
+                    <p style={{ color: 'var(--muted)', fontSize: '13px', margin: '0 0 14px' }}>Sin tareas recurrentes</p>
+                    <Button
+                      variant="secondary" size="sm" icon={<Plus size={13} />}
+                      onClick={() => setShowRecurModal(true)}
+                      style={{ background: '#B026FF15', color: 'var(--purple)', borderColor: '#B026FF33' }}
+                    >
+                      Agregar tarea recurrente
+                    </Button>
+                  </div>
+                ) : (
+                  <div style={{ display: 'grid', gap: '10px' }}>
+                    {recurringTasks.map((task, i) => (
+                      <RecurringTaskItem
+                        key={task.id}
+                        task={task}
+                        userId={userId}
+                        onLog={handleLogRecurring}
+                        onDelete={handleDeleteRecurring}
+                        onUpdate={(updated) => setRecurringTasks(prev =>
+                          prev.map(t => t.id === updated.id ? { ...t, ...updated } : t)
+                        )}
+                        isDragging={dragRtIdx === i}
+                        isDragOver={dropRtIdx === i && dragRtIdx !== i}
+                        onDragStart={() => setDragRtIdx(i)}
+                        onDragOver={() => setDropRtIdx(i)}
+                        onDrop={handleDropRecurring}
+                        onDragEnd={() => { setDragRtIdx(null); setDropRtIdx(null) }}
+                      />
+                    ))}
+                  </div>
+                )}
+              </Panel>
+            )}
+          </div>
+        )
+
+        // PC: listas a la izquierda y resumen a la derecha · móvil/tablet: resumen primero
+        return (
+          <div style={{
+            display: 'grid', alignItems: 'start', gap: isMobile ? '12px' : '16px',
+            gridTemplateColumns: isDesktop ? 'minmax(0, 1.7fr) minmax(300px, 1fr)' : 'minmax(0, 1fr)',
+          }}>
+            {isDesktop ? <>{lists}{summary}</> : <>{summary}{lists}</>}
+          </div>
+        )
+      })()}
 
       {/* ── MODAL SUBMETA ── */}
       {showModal && (
-        <div style={{
-          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)',
-          backdropFilter: 'blur(4px)', zIndex: 50,
-          display: 'flex', alignItems: 'center',
-          justifyContent: 'center', padding: '1rem',
-        }}>
+        <ModalBackdrop>
           <AddSubGoalModal
             goalId={goal.id}
             currentCount={subGoals.length}
@@ -584,33 +527,23 @@ export default function GoalDetailPage() {
             onAdd={handleAddSubGoal}
             onClose={() => setShowModal(false)}
           />
-        </div>
+        </ModalBackdrop>
       )}
 
       {/* ── MODAL EDITAR META ── */}
       {showEditGoal && (
-        <div style={{
-          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)',
-          backdropFilter: 'blur(4px)', zIndex: 60,
-          display: 'flex', alignItems: 'center',
-          justifyContent: 'center', padding: '1rem',
-        }}>
+        <ModalBackdrop>
           <EditGoalModal
             goal={goal}
             onSave={updated => setGoal(g => g ? { ...g, ...updated } : g)}
             onClose={() => setShowEditGoal(false)}
           />
-        </div>
+        </ModalBackdrop>
       )}
 
       {/* ── MODAL TAREA RECURRENTE ── */}
       {showRecurModal && (
-        <div style={{
-          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)',
-          backdropFilter: 'blur(4px)', zIndex: 50,
-          display: 'flex', alignItems: 'center',
-          justifyContent: 'center', padding: '1rem',
-        }}>
+        <ModalBackdrop>
           <AddRecurringTaskModal
             goalId={goal.id}
             userId={userId}
@@ -619,7 +552,7 @@ export default function GoalDetailPage() {
             onAdd={handleAddRecurring}
             onClose={() => setShowRecurModal(false)}
           />
-        </div>
+        </ModalBackdrop>
       )}
 
     </div>

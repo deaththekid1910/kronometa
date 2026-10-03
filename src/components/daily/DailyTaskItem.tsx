@@ -9,6 +9,7 @@ import { DAILY_TASK_XP } from '@/lib/gamification'
 import { useXPStore } from '@/store/xpStore'
 import { Check, Clock, Pencil, Trash2, RotateCcw, CalendarClock } from 'lucide-react'
 import EditDailyTaskModal from './EditDailyTaskModal'
+import { chip, actionBtn } from '@/components/ui/Layout'
 
 interface Props {
   task: DailyTask
@@ -196,23 +197,3 @@ export default function DailyTaskItem({
   )
 }
 
-function chip(c: string): React.CSSProperties {
-  return {
-    display: 'inline-flex', alignItems: 'center', gap: '5px',
-    fontSize: '11px', color: c,
-    background: `${c}10`, border: `1px solid ${c}30`,
-    padding: '3px 9px', borderRadius: '20px', whiteSpace: 'nowrap',
-  }
-}
-
-// Botones de acción de 32px con su propio fondo y borde: se distinguen y
-// se tocan cómodamente en el móvil.
-function actionBtn(c: string): React.CSSProperties {
-  return {
-    width: '32px', height: '32px', borderRadius: 'var(--radius-sm)',
-    background: `${c}10`, border: `1px solid ${c}30`, color: c,
-    cursor: 'pointer', flexShrink: 0,
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    transition: 'all var(--transition)',
-  }
-}

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { DailyTask } from '@/types/dailyTask'
-import { localToday } from '@/lib/dailyTasks'
+import { localToday, formatTaskDate } from '@/lib/dailyTasks'
 import { useDebounce } from '@/hooks/useDebounce'
 import DailyTaskItem from './DailyTaskItem'
 import { Search, X, ChevronLeft, ChevronRight, History } from 'lucide-react'
@@ -17,6 +17,7 @@ type Orden = 'fecha_desc' | 'fecha_asc' | 'titulo_asc' | 'titulo_desc'
 interface Props {
   userId: string
   refreshToken?: number                          // incrementa desde el padre para forzar recarga
+  isMobile?: boolean
   onTaskChanged?: (task: DailyTask) => void       // propaga el cambio (completar/reactivar/editar) al padre
   onTaskDeleted?: (id: string) => void
 }
@@ -32,7 +33,7 @@ function taskColor(t: DailyTask, today: string): { color: string; overdue: boole
   return { color: '#00F5FF', overdue: false }
 }
 
-export default function TaskHistory({ userId, refreshToken = 0, onTaskChanged, onTaskDeleted }: Props) {
+export default function TaskHistory({ userId, refreshToken = 0, isMobile = false, onTaskChanged, onTaskDeleted }: Props) {
   const today = localToday()
 
   const [tasks,   setTasks]   = useState<DailyTask[]>([])
@@ -137,41 +138,57 @@ export default function TaskHistory({ userId, refreshToken = 0, onTaskChanged, o
     load()
   }
 
+  // Al ordenar por fecha, las tareas se agrupan por día con un encabezado
+  const byDate = orden === 'fecha_desc' || orden === 'fecha_asc'
+  const groups: { key: string; label: string; items: DailyTask[] }[] = []
+  for (const t of tasks) {
+    const key = byDate ? t.task_date : 'all'
+    const last = groups[groups.length - 1]
+    if (last && last.key === key) last.items.push(t)
+    else groups.push({ key, label: byDate ? (t.task_date === today ? 'Hoy' : formatTaskDate(t.task_date)) : '', items: [t] })
+  }
+
   return (
-    <div style={{ marginTop: '32px', paddingTop: '24px', borderTop: '1px solid var(--border)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+    <section style={{
+      background: 'var(--surface)', border: '1px solid var(--border)',
+      borderRadius: 'var(--radius-lg)', padding: isMobile ? '14px' : '18px',
+    }}>
+      <header style={{
+        display: 'flex', alignItems: 'center', gap: '8px',
+        paddingBottom: '12px', marginBottom: '14px', borderBottom: '1px solid var(--border)',
+      }}>
         <History size={14} color={ACCENT} />
-        <span style={{ fontSize: '11px', color: 'var(--muted)', letterSpacing: '1px', fontWeight: 500 }}>
+        <h2 style={{ margin: 0, fontSize: '12px', fontWeight: 600, letterSpacing: '0.8px', color: ACCENT, flex: 1 }}>
           HISTORIAL
+        </h2>
+        <span style={{ fontSize: '12px', color: 'var(--muted)' }}>
+          {total} {total === 1 ? 'tarea' : 'tareas'}
         </span>
-        <span style={{ fontSize: '11px', color: 'var(--dim)' }}>
-          · {total} {total === 1 ? 'tarea' : 'tareas'}
-        </span>
-      </div>
+      </header>
 
       {/* FILTROS */}
       <div style={{
-        background: 'var(--surface)', border: '1px solid var(--border)',
-        borderRadius: 'var(--radius-lg)', padding: '16px', marginBottom: '16px',
+        background: 'var(--surface2)', border: '1px solid var(--border)',
+        borderRadius: 'var(--radius-md)', padding: isMobile ? '12px' : '14px', marginBottom: '18px',
       }}>
         <div style={{ position: 'relative', marginBottom: '12px' }}>
-          <Search size={14} color="var(--dim)" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
+          <Search size={14} color="var(--muted)" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
           <input
             type="text"
             placeholder="Buscar por título o descripción..."
             value={search}
             onChange={e => setSearch(e.target.value)}
             style={{
-              width: '100%', padding: '9px 12px 9px 34px',
-              background: 'var(--surface2)', border: '1px solid var(--border)',
+              width: '100%', padding: '10px 12px 10px 34px', boxSizing: 'border-box',
+              background: '#0A0E1A88', border: '1px solid var(--border)',
               borderRadius: 'var(--radius-sm)', color: 'var(--text)', fontSize: '13px', outline: 'none',
             }}
           />
         </div>
 
         <div style={{
-          display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
-          gap: '10px', marginBottom: '12px',
+          display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, minmax(0, 1fr))' : 'repeat(4, minmax(0, 1fr))',
+          gap: isMobile ? '10px' : '12px',
         }}>
           <Field label="Desde">
             <input type="date" value={fechaDesde} max={fechaHasta || undefined} onChange={e => setFechaDesde(e.target.value)} style={inputStyle} />
@@ -198,7 +215,7 @@ export default function TaskHistory({ userId, refreshToken = 0, onTaskChanged, o
         </div>
 
         {hasFilters && (
-          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '12px' }}>
             <button onClick={handleClear} style={{
               display: 'flex', alignItems: 'center', gap: '5px',
               padding: '6px 12px', borderRadius: 'var(--radius-sm)',
@@ -226,21 +243,45 @@ export default function TaskHistory({ userId, refreshToken = 0, onTaskChanged, o
         </div>
       ) : (
         <>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
-            {tasks.map(t => {
-              const { color, overdue } = taskColor(t, today)
-              return (
-                <DailyTaskItem
-                  key={t.id} task={t} color={color} overdue={overdue}
-                  onComplete={handleComplete} onUncomplete={handleUncomplete}
-                  onUpdate={handleUpdate} onDelete={handleDelete}
-                />
-              )
-            })}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '18px', marginBottom: '18px' }}>
+            {groups.map(g => (
+              <div key={g.key}>
+                {g.label && (
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px',
+                    fontSize: '11px', fontWeight: 600, color: 'var(--muted)', letterSpacing: '0.6px', textTransform: 'uppercase',
+                  }}>
+                    {g.label}
+                    <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>
+                      · {g.items.length} {g.items.length === 1 ? 'tarea' : 'tareas'}
+                    </span>
+                    <span style={{ flex: 1, height: '1px', background: 'var(--border)' }} />
+                  </div>
+                )}
+                <div style={{
+                  display: 'grid', gap: '10px', alignItems: 'start',
+                  gridTemplateColumns: isMobile ? 'minmax(0, 1fr)' : 'repeat(auto-fill, minmax(380px, 1fr))',
+                }}>
+                  {g.items.map(t => {
+                    const { color, overdue } = taskColor(t, today)
+                    return (
+                      <DailyTaskItem
+                        key={t.id} task={t} color={color} overdue={overdue}
+                        onComplete={handleComplete} onUncomplete={handleUncomplete}
+                        onUpdate={handleUpdate} onDelete={handleDelete}
+                      />
+                    )
+                  })}
+                </div>
+              </div>
+            ))}
           </div>
 
           {totalPages > 1 && (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px',
+              paddingTop: '14px', borderTop: '1px solid var(--border)',
+            }}>
               <button
                 onClick={() => setPage(p => Math.max(1, p - 1))}
                 disabled={page === 1}
@@ -248,8 +289,8 @@ export default function TaskHistory({ userId, refreshToken = 0, onTaskChanged, o
               >
                 <ChevronLeft size={14} />
               </button>
-              <span style={{ fontSize: '12px', color: 'var(--muted)', fontFamily: 'var(--font-mono)' }}>
-                {page} / {totalPages}
+              <span style={{ fontSize: '12px', color: 'var(--muted)' }}>
+                Página <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text)' }}>{page}</span> de {totalPages}
               </span>
               <button
                 onClick={() => setPage(p => Math.min(totalPages, p + 1))}
@@ -265,8 +306,9 @@ export default function TaskHistory({ userId, refreshToken = 0, onTaskChanged, o
 
       {/* TOAST */}
       {toast && (
-        <div style={{
-          position: 'fixed', bottom: '24px', left: '24px', zIndex: 99,
+        <div role="status" style={{
+          position: 'fixed', bottom: isMobile ? '76px' : '24px', left: isMobile ? '12px' : '24px',
+          right: isMobile ? '12px' : 'auto', zIndex: 10001,
           background: 'var(--surface)', border: `1px solid ${ACCENT}66`,
           borderRadius: '12px', padding: '12px 16px',
           fontSize: '13px', color: 'var(--text)', fontWeight: 500,
@@ -275,14 +317,14 @@ export default function TaskHistory({ userId, refreshToken = 0, onTaskChanged, o
           {toast}
         </div>
       )}
-    </div>
+    </section>
   )
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <label style={{ fontSize: '10px', color: 'var(--muted)', display: 'block', marginBottom: '4px' }}>
+      <label style={{ fontSize: '11px', color: 'var(--muted)', display: 'block', marginBottom: '6px', fontWeight: 500 }}>
         {label}
       </label>
       {children}
@@ -291,8 +333,8 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 const inputStyle: React.CSSProperties = {
-  width: '100%', padding: '7px 9px',
-  background: 'var(--surface2)', border: '1px solid var(--border)',
+  width: '100%', padding: '9px 10px', boxSizing: 'border-box',
+  background: '#0A0E1A88', border: '1px solid var(--border)',
   borderRadius: 'var(--radius-sm)', color: 'var(--text)', fontSize: '12px',
   colorScheme: 'dark',
 }
